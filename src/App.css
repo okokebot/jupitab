@@ -292,6 +292,24 @@
   margin-left: 4px;
 }
 
+.ts-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.ts-label input {
+  width: 44px;
+}
+
+.tab-svg .overfull-mark {
+  fill: var(--danger);
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
 .tab-status {
   font-family: var(--mono);
   font-size: 12px;

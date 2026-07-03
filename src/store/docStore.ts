@@ -10,6 +10,8 @@ export interface DocState {
   updateDoc: (fn: (doc: FretpadDoc) => FretpadDoc) => void
   updateBlock: <B extends Block>(id: string, fn: (block: B) => B) => void
   addBlock: (type: BlockType, afterId?: string) => string
+  /** 構築済みブロック(サンプル等)を挿入する */
+  insertBlock: (block: Block, afterId?: string) => void
   removeBlock: (id: string) => void
   moveBlock: (id: string, dir: -1 | 1) => void
 }
@@ -41,14 +43,17 @@ export const useDocStore = create<DocState>()(
 
       addBlock: (type, afterId) => {
         const block = createBlock(type)
+        get().insertBlock(block, afterId)
+        return block.id
+      },
+
+      insertBlock: (block, afterId) =>
         get().updateDoc((doc) => {
           const i = afterId ? doc.blocks.findIndex((b) => b.id === afterId) : doc.blocks.length - 1
           const blocks = [...doc.blocks]
           blocks.splice((i < 0 ? doc.blocks.length - 1 : i) + 1, 0, block)
           return { ...doc, blocks }
-        })
-        return block.id
-      },
+        }),
 
       removeBlock: (id) =>
         get().updateDoc((doc) => ({ ...doc, blocks: doc.blocks.filter((b) => b.id !== id) })),

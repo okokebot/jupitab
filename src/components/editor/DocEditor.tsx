@@ -1,5 +1,6 @@
 import { useDocStore } from '../../store/docStore.ts'
 import type { BlockType } from '../../model/types.ts'
+import { createRhythmSampleTabBlock } from '../../model/samples.ts'
 import { BlockFrame } from './BlockFrame.tsx'
 
 const BLOCK_TYPES: { type: BlockType; label: string }[] = [
@@ -13,6 +14,7 @@ export function DocEditor() {
   const doc = useDocStore((s) => s.doc)
   const setTitle = useDocStore((s) => s.setTitle)
   const addBlock = useDocStore((s) => s.addBlock)
+  const insertBlock = useDocStore((s) => s.insertBlock)
 
   if (!doc) return null
 
@@ -35,6 +37,14 @@ export function DocEditor() {
             {label}
           </button>
         ))}
+        <button
+          type="button"
+          className="btn"
+          title="音価・休符・連符の描画サンプルを挿入"
+          onClick={() => insertBlock(createRhythmSampleTabBlock())}
+        >
+          ＋ リズムサンプル
+        </button>
       </div>
     </div>
   )

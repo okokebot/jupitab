@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import type { Articulation, Duration, TabBlock } from '../../../model/types.ts'
+import type { Articulation, Duration, TabBlock, TimeSignature } from '../../../model/types.ts'
+import { effectiveTimeSignature } from '../../../model/types.ts'
 import { DEFAULT_DURATION } from '../../../model/factory.ts'
 import { doubleBase, halveBase } from '../../../model/duration.ts'
 import { noteName, pitchFromTab } from '../../../model/theory.ts'
@@ -196,6 +197,14 @@ export function TabBlockView({ block }: { block: TabBlock }) {
 
   const cursorNote = cursor ? ops.noteAt(block, cursor) : undefined
   const cursorEvent = cursor ? ops.eventAt(block, cursor.m, cursor.e) : undefined
+  // 拍子コントロールの対象小節: カーソル位置、なければ先頭小節
+  const tsMeasure = cursor?.m ?? 0
+  const cursorTs: TimeSignature = effectiveTimeSignature(block.measures, tsMeasure)
+  const cursorTsExplicit = block.measures[tsMeasure]?.timeSignature !== undefined
+
+  const changeTimeSignature = (ts: TimeSignature | undefined) => {
+    apply((b) => ops.setTimeSignature(b, tsMeasure, ts))
+  }
   const svgCursor: TabPosition | null = cursor
     ? { measureIndex: cursor.m, eventIndex: cursor.e, string: cursor.s }
     : null
@@ -232,6 +241,45 @@ export function TabBlockView({ block }: { block: TabBlock }) {
             value={block.capo ?? 0}
             onChange={(e) => apply((b) => ({ ...b, capo: Number(e.target.value) || undefined }))}
           />
+        </label>
+        <label
+          className="ts-label"
+          title="拍子を変更(カーソル位置の小節から。未選択なら先頭小節。以降の小節に引き継がれる)"
+        >
+          拍子{cursor && cursor.m > 0 ? `(${cursor.m + 1}小節目〜)` : ''}
+          <input
+            type="number"
+            min={1}
+            max={32}
+            value={cursorTs.beats}
+            onChange={(e) => {
+              const beats = Math.min(32, Math.max(1, Number(e.target.value) || 4))
+              changeTimeSignature({ ...cursorTs, beats })
+            }}
+          />
+          /
+          <select
+            value={cursorTs.beatUnit}
+            onChange={(e) =>
+              changeTimeSignature({ ...cursorTs, beatUnit: Number(e.target.value) as TimeSignature['beatUnit'] })
+            }
+          >
+            {[2, 4, 8, 16].map((u) => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </select>
+          {cursorTsExplicit && (
+            <button
+              type="button"
+              className="btn-icon"
+              title="拍子の変更を解除(前の小節を引き継ぐ。先頭小節は 4/4 に戻る)"
+              onClick={() => changeTimeSignature(undefined)}
+            >
+              解除
+            </button>
+          )}
         </label>
         <button type="button" className="btn" onClick={() => setShowHelp((v) => !v)}>
           ⌨ キー操作

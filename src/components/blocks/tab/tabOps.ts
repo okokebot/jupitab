@@ -9,6 +9,7 @@ import type {
   TabBlock,
   TabEvent,
   TabNote,
+  TimeSignature,
 } from '../../../model/types.ts'
 import { createMeasure, createTabEvent } from '../../../model/factory.ts'
 
@@ -142,6 +143,15 @@ export function removeEvent(block: TabBlock, m: number, e: number): TabBlock {
     ...msr,
     events: msr.events.filter((_, i) => i !== e),
   }))
+}
+
+/** 拍子を設定する。undefined で「前小節から継承」に戻す */
+export function setTimeSignature(
+  block: TabBlock,
+  m: number,
+  ts: TimeSignature | undefined,
+): TabBlock {
+  return updateMeasure(block, m, (measure) => ({ ...measure, timeSignature: ts }))
 }
 
 export function insertMeasureAfter(block: TabBlock, m: number, duration: Duration): TabBlock {

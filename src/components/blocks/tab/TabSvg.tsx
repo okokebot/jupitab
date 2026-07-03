@@ -2,6 +2,9 @@
 
 import type { JSX, PointerEvent } from 'react'
 import type { Articulation, TabBlock, TabNote } from '../../../model/types.ts'
+import { effectiveTimeSignature } from '../../../model/types.ts'
+import { measureCapacity, measureUsed } from '../../../model/duration.ts'
+import { cmp } from '../../../model/fraction.ts'
 import {
   findEvent,
   hitTest,
@@ -269,6 +272,10 @@ function MeasureGlyphs({ layout, staffTop, m, block }: { layout: TabLayout; staf
     )
   }
 
+  // 小節の合計音価が拍子を超えていたら警告マーク
+  const overfull =
+    cmp(measureUsed(m.measure), measureCapacity(effectiveTimeSignature(block.measures, m.index))) > 0
+
   return (
     <g>
       {m.showTimeSignature && (
@@ -280,6 +287,11 @@ function MeasureGlyphs({ layout, staffTop, m, block }: { layout: TabLayout; staf
             {m.showTimeSignature.beatUnit}
           </text>
         </g>
+      )}
+      {overfull && (
+        <text className="overfull-mark" x={m.x + m.width - 8} y={staffTop - 8}>
+          !<title>小節の合計音価が拍子を超えています</title>
+        </text>
       )}
       {glyphs}
     </g>
