@@ -1,0 +1,74 @@
+:root {
+  --bg: #fafaf8;
+  --bg-panel: #f1f0ec;
+  --bg-block: #ffffff;
+  --text: #2b2a33;
+  --text-dim: #7a7884;
+  --border: #e0dfd9;
+  --accent: #c05621;
+  --accent-soft: rgba(192, 86, 33, 0.12);
+  --danger: #c53030;
+  --staff: #9a978e;
+  --note: #1a1a22;
+
+  --sans: system-ui, 'Hiragino Sans', 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  font: 15px/1.6 var(--sans);
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #191920;
+    --bg-panel: #14141a;
+    --bg-block: #20202a;
+    --text: #e8e6f0;
+    --text-dim: #96939f;
+    --border: #33323e;
+    --accent: #e8804a;
+    --accent-soft: rgba(232, 128, 74, 0.16);
+    --danger: #f56565;
+    --staff: #5d5b66;
+    --note: #f0eef8;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: inherit;
+  background: var(--bg-block);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
