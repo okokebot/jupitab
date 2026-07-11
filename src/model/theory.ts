@@ -58,3 +58,40 @@ export function degreeInKey(pc: number, key: KeyContext): string {
 export function isInScale(pc: number, key: KeyContext): boolean {
   return scalePitchClasses(key).has(((pc % 12) + 12) % 12)
 }
+
+// ---- 指板図の自動マーキング(spec 003)----
+
+export interface ScalePosition {
+  /** 1 = 1弦(高音 E) */
+  string: number
+  fret: number
+  /** ピッチクラス 0-11 */
+  pc: number
+  isRoot: boolean
+}
+
+/**
+ * 表示フレット範囲内のスケール構成音の位置。
+ * 範囲は指板図の描画実態に合わせ fretStart+1〜fretEnd、fretStart === 0 のときのみ開放弦(0)を含む。
+ * 音高は保存せず毎回 pitchFromTab から導出する(単一の真実源)。
+ */
+export function scalePositions(
+  tuning: number[],
+  fretStart: number,
+  fretEnd: number,
+  key: KeyContext,
+): ScalePosition[] {
+  const pcs = scalePitchClasses(key)
+  const frets: number[] = []
+  if (fretStart === 0) frets.push(0)
+  for (let f = fretStart + 1; f <= fretEnd; f++) frets.push(f)
+
+  const positions: ScalePosition[] = []
+  for (let string = 1; string <= tuning.length; string++) {
+    for (const fret of frets) {
+      const pc = pitchClass(pitchFromTab(tuning, string, fret))
+      if (pcs.has(pc)) positions.push({ string, fret, pc, isRoot: pc === key.tonic })
+    }
+  }
+  return positions
+}

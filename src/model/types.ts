@@ -30,6 +30,7 @@ export type Articulation =
   | 'ghost'
 
 export interface Bend {
+  /** 半音単位。0.5 = クォーターチョーキング(¼) */
   semitones: number
   kind: 'bend' | 'bendRelease' | 'prebend'
 }
@@ -50,6 +51,10 @@ export interface TabNote {
   articulations?: Articulation[]
   /** 次の音への接続(H/P/S) */
   legatoToNext?: Legato
+  /** 不定音程からのスライドイン(音の前に / を描く) */
+  slideIn?: boolean
+  /** 不定音程へのスライドアウト(音の後に \ を描く) */
+  slideOut?: boolean
   bend?: Bend
   harmonic?: 'natural' | 'artificial'
 }
@@ -60,6 +65,10 @@ export interface TabEvent {
   duration: Duration
   /** 和音 = 複数。空配列 = 休符 */
   notes: TabNote[]
+  /** コード名("Fm7" など)。譜の上に表示 */
+  chord?: string
+  /** メモ("※ 3度トップの形" など)。譜の下に表示 */
+  memo?: string
 }
 
 export interface Measure {
@@ -120,6 +129,10 @@ export interface FretboardBlock {
   fretEnd: number
   markers: FretMarker[]
   keyContext?: KeyContext
+  /** 左右反転(左利き)表示。省略 = false = 右利き表示(ADR 0001: 省略可能フィールドの追加は schemaVersion を上げない) */
+  mirrored?: boolean
+  /** スケール自動マーカーのラベル表示。省略 = 'degree'(度数)(ADR 0001 に同じ) */
+  labelMode?: 'degree' | 'name' | 'none'
 }
 
 export interface Barre {

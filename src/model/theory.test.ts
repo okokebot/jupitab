@@ -6,6 +6,7 @@ import {
   pitchClassName,
   pitchFromTab,
   scalePitchClasses,
+  scalePositions,
   STANDARD_TUNING,
 } from './theory.ts'
 
@@ -51,5 +52,46 @@ describe('スケールと度数', () => {
   it('スケール判定', () => {
     expect(isInScale(0, aMinorPenta)).toBe(true) // C
     expect(isInScale(1, aMinorPenta)).toBe(false) // C#
+  })
+})
+
+describe('scalePositions(指板図の自動マーキング)', () => {
+  const aMinorPenta = { tonic: 9, scale: 'minorPentatonic' as const }
+  const has = (ps: ReturnType<typeof scalePositions>, string: number, fret: number) =>
+    ps.some((p) => p.string === string && p.fret === fret)
+
+  it('標準チューニング 0〜12F: 既知位置を含み、非構成音を含まない', () => {
+    const ps = scalePositions(STANDARD_TUNING, 0, 12, aMinorPenta)
+    expect(has(ps, 6, 5)).toBe(true) // 6弦5F = A(ルート)
+    expect(ps.find((p) => p.string === 6 && p.fret === 5)?.isRoot).toBe(true)
+    expect(has(ps, 1, 0)).toBe(true) // 1弦開放 E = 5度
+    expect(ps.find((p) => p.string === 1 && p.fret === 0)?.isRoot).toBe(false)
+    expect(has(ps, 2, 1)).toBe(true) // 2弦1F = C(♭3)
+    expect(has(ps, 6, 1)).toBe(false) // 6弦1F = F は非構成音
+  })
+
+  it('fretStart > 0 では開放弦と fretStart 以下のフレットを含まない', () => {
+    const ps = scalePositions(STANDARD_TUNING, 5, 12, aMinorPenta)
+    expect(ps.length).toBeGreaterThan(0)
+    expect(ps.every((p) => p.fret > 5 && p.fret <= 12)).toBe(true)
+    expect(has(ps, 6, 5)).toBe(false) // 6弦5F(A)は表示範囲の左外
+    expect(has(ps, 6, 8)).toBe(true) // 6弦8F = C は範囲内
+  })
+
+  it('変則チューニング(ドロップ D)では 6弦の位置がずれる', () => {
+    const dropD = [64, 59, 55, 50, 45, 38]
+    const std = scalePositions(STANDARD_TUNING, 0, 12, aMinorPenta)
+    const drop = scalePositions(dropD, 0, 12, aMinorPenta)
+    expect(has(std, 6, 3)).toBe(true) // 標準: 6弦3F = G(構成音)
+    expect(has(drop, 6, 3)).toBe(false) // ドロップD: 6弦3F = F(非構成音)
+    expect(drop.find((p) => p.string === 6 && p.fret === 7)?.isRoot).toBe(true) // D+7 = A
+    expect(has(drop, 6, 0)).toBe(true) // 開放 D は構成音(4度)
+  })
+
+  it('isRoot の位置はすべてピッチクラスが tonic に一致する', () => {
+    const ps = scalePositions(STANDARD_TUNING, 0, 12, aMinorPenta)
+    const roots = ps.filter((p) => p.isRoot)
+    expect(roots.length).toBeGreaterThan(0)
+    for (const p of roots) expect(p.pc).toBe(9)
   })
 })
