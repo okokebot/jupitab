@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import type { FretboardBlock, FretMarker, MarkerStyle, ScaleType } from '../../model/types.ts'
-import { degreeInKey, noteName, pitchClassName, pitchFromTab, scalePositions } from '../../model/theory.ts'
+import {
+  degreeInKey,
+  noteName,
+  pitchClass,
+  pitchClassName,
+  pitchFromTab,
+  scalePositions,
+} from '../../model/theory.ts'
 import { INLAY_FRETS, STRING_GAP, fretboardGeometry } from '../../layout/fretboardLayout.ts'
 import { useDocStore } from '../../store/docStore.ts'
 
+// 'root' の表記は「強調」— スケール自動表示側の「ルート」と用語が衝突しないように(spec 003)
 const STYLE_LABELS: { value: MarkerStyle; label: string }[] = [
-  { value: 'root', label: 'ルート' },
+  { value: 'root', label: '強調' },
   { value: 'primary', label: '通常' },
   { value: 'muted', label: '弱' },
 ]
@@ -221,9 +229,11 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
               削除
             </button>
             <span className="tab-status">
-              {noteName(
-                pitchFromTab(block.tuning, selectedMarker.string, selectedMarker.fret),
-              )}
+              {(() => {
+                const midi = pitchFromTab(block.tuning, selectedMarker.string, selectedMarker.fret)
+                const name = noteName(midi, key?.preferFlats)
+                return key ? `${name} ・ 度数 ${degreeInKey(pitchClass(midi), key)}` : name
+              })()}
             </span>
           </span>
         )}
@@ -401,6 +411,10 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
           const x = geom.markerX(m.fret)
           const y = geom.stringY(m.string)
           const isSelected = selected?.string === m.string && selected?.fret === m.fret
+          // ラベルが空でスケール構成音上にある手動マーカーは、導出ラベルを表示し続ける
+          // (調べようとクリックした人から度数情報を奪わない — spec 003 AC-7)
+          const auto = !m.label && labelMode !== 'none' ? autoAt(m.string, m.fret) : undefined
+          const text = m.label ?? (auto ? derivedLabel(auto.pc) : undefined)
           return (
             <g
               key={`${m.string}-${m.fret}`}
@@ -408,9 +422,9 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
               onClick={() => handleClick(m.string, m.fret)}
             >
               <circle cx={x} cy={y} r={9} />
-              {m.label && (
+              {text && (
                 <text x={x} y={y + 3.5}>
-                  {m.label}
+                  {text}
                 </text>
               )}
             </g>
