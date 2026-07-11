@@ -567,6 +567,13 @@
   font-size: 12px;
 }
 
+.label-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
 .fretboard-svg .fret-line {
   stroke: var(--staff);
   stroke-width: 1;

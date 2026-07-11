@@ -26,6 +26,13 @@ const ROOT_OPTIONS: { pc: number; label: string }[] = [
   { pc: 11, label: 'B' },
 ]
 
+/** 自動マーカーのラベル表示。「点のみ」は度数を自分で思い出す自己テストにも使える */
+const LABEL_MODE_OPTIONS: { value: NonNullable<FretboardBlock['labelMode']>; label: string }[] = [
+  { value: 'degree', label: '度数' },
+  { value: 'name', label: '音名' },
+  { value: 'none', label: '点のみ' },
+]
+
 /** スケール選択肢。見出しは学習経路の言葉でグルーピング(理論初学者向け) */
 const SCALE_GROUPS: { heading: string; scales: { value: ScaleType; label: string }[] }[] = [
   {
@@ -248,6 +255,38 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
             ))}
           </select>
         </label>
+        {key && (
+          <span className="label-mode-toggle">
+            表示
+            {LABEL_MODE_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                className={`btn btn-sm ${labelMode === value ? 'btn-active' : ''}`}
+                aria-pressed={labelMode === value}
+                onClick={() => apply((b) => ({ ...b, labelMode: value }))}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+        )}
+        {key && labelMode === 'name' && (
+          <button
+            type="button"
+            className="btn btn-sm"
+            title="音名の ♯/♭ 表記を切り替えます"
+            onClick={() =>
+              apply((b) =>
+                b.keyContext
+                  ? { ...b, keyContext: { ...b.keyContext, preferFlats: !b.keyContext.preferFlats } }
+                  : b,
+              )
+            }
+          >
+            {key.preferFlats ? '♭表記' : '♯表記'}
+          </button>
+        )}
         {!key && (
           <span className="lens-hint">
             スケールを選ぶと、その音が指板に自動表示されます(ルートは A から変更できます)
