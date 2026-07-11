@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FretboardBlock, FretMarker, MarkerStyle, ScaleType } from '../../model/types.ts'
-import { noteName, pitchFromTab } from '../../model/theory.ts'
+import { degreeInKey, noteName, pitchClassName, pitchFromTab, scalePositions } from '../../model/theory.ts'
 import { INLAY_FRETS, STRING_GAP, fretboardGeometry } from '../../layout/fretboardLayout.ts'
 import { useDocStore } from '../../store/docStore.ts'
 
@@ -82,6 +82,18 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
       apply((b) => ({ ...b, keyContext: { ...b.keyContext, tonic: rootShown, scale } }))
     }
   }
+
+  // ---- スケール自動マーカー(導出表示: 保存せず表示のたびに計算する)----
+  const labelMode = block.labelMode ?? 'degree'
+  const autoPositions = key ? scalePositions(block.tuning, block.fretStart, block.fretEnd, key) : []
+  const autoAt = (string: number, fret: number) =>
+    autoPositions.find((p) => p.string === string && p.fret === fret)
+  /** 現在の表示モードでのラベル(labelMode 'none' のときは呼び出し側でガード) */
+  const derivedLabel = (pc: number) =>
+    key ? (labelMode === 'name' ? pitchClassName(pc, key.preferFlats) : degreeInKey(pc, key)) : ''
+  /** ホバーツールチップ用「音名(度数)」 */
+  const hoverTitle = (pc: number) =>
+    key ? `${pitchClassName(pc, key.preferFlats)}(${degreeInKey(pc, key)})` : ''
 
   const stringCount = block.tuning.length
   const fretCount = block.fretEnd - block.fretStart
@@ -304,6 +316,7 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
             const fret = fi === 0 ? (block.fretStart === 0 ? 0 : -1) : block.fretStart + fi
             if (fret < 0) return null
             const rect = geom.hitRect(string, fret)
+            const auto = autoAt(string, fret)
             return (
               <rect
                 key={`${string}-${fret}`}
@@ -313,9 +326,36 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
                 width={rect.width}
                 height={rect.height}
                 onClick={() => handleClick(string, fret)}
-              />
+              >
+                {/* 自動マーカー本体は pointer-events: none のため、ツールチップはヒット領域側に付ける */}
+                {auto && <title>{hoverTitle(auto.pc)}</title>}
+              </rect>
             )
           }),
+        )}
+        {/* スケール自動マーカー(手動マーカーより背面に描き、クリックはヒット領域へ透過) */}
+        {key && (
+          <g className="auto-markers">
+            {autoPositions.map((p) => {
+              const x = geom.markerX(p.fret)
+              const y = geom.stringY(p.string)
+              return (
+                <g
+                  key={`auto-${p.string}-${p.fret}`}
+                  className={`marker-auto${p.isRoot ? ' marker-auto-root' : ''}`}
+                >
+                  {/* ルートは二重円で強調(手動マーカーの塗りと混同しないよう塗りは使わない) */}
+                  {p.isRoot && <circle cx={x} cy={y} r={10} />}
+                  <circle cx={x} cy={y} r={7} />
+                  {labelMode !== 'none' && (
+                    <text x={x} y={y + 3}>
+                      {derivedLabel(p.pc)}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
+          </g>
         )}
         {/* マーカー */}
         {block.markers.map((m) => {

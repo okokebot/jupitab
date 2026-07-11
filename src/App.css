@@ -646,6 +646,36 @@
   stroke-width: 2.5;
 }
 
+/* スケール自動マーカー(spec 003)。
+   破線 + 手動より小径で「自分が書いた印」と区別する(輪郭実線は手動「弱」と衝突するため使わない)。
+   クリックを奪わずヒット領域へ透過させる */
+.fretboard-svg .auto-markers {
+  pointer-events: none;
+}
+
+.fretboard-svg .marker-auto circle {
+  fill: none;
+  stroke: var(--note);
+  stroke-width: 1.3;
+  stroke-dasharray: 3 2;
+}
+
+.fretboard-svg .marker-auto text {
+  fill: var(--note);
+  font-size: 8.5px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+/* ルートは二重円 + アクセント色 */
+.fretboard-svg .marker-auto-root circle {
+  stroke: var(--accent);
+}
+
+.fretboard-svg .marker-auto-root text {
+  fill: var(--accent);
+}
+
 /* ---- コード表ブロック ---- */
 .chord-block {
   display: flex;
