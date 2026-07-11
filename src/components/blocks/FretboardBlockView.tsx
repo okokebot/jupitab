@@ -1,34 +1,97 @@
 import { useState } from 'react'
-import type { FretboardBlock, FretMarker, MarkerStyle } from '../../model/types.ts'
+import type { FretboardBlock, FretMarker, MarkerStyle, ScaleType } from '../../model/types.ts'
 import { noteName, pitchFromTab } from '../../model/theory.ts'
+import { INLAY_FRETS, STRING_GAP, fretboardGeometry } from '../../layout/fretboardLayout.ts'
 import { useDocStore } from '../../store/docStore.ts'
 
-const FRET_W = 46
-const STRING_GAP = 22
-const LEFT = 40
-const TOP = 24
-const INLAY_FRETS = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24]
 const STYLE_LABELS: { value: MarkerStyle; label: string }[] = [
   { value: 'root', label: 'ルート' },
   { value: 'primary', label: '通常' },
   { value: 'muted', label: '弱' },
 ]
 
+/** ルート選択肢。異名同音は併記してどちらの表記でも探せるようにする(spec 003) */
+const ROOT_OPTIONS: { pc: number; label: string }[] = [
+  { pc: 0, label: 'C' },
+  { pc: 1, label: 'C# / D♭' },
+  { pc: 2, label: 'D' },
+  { pc: 3, label: 'D# / E♭' },
+  { pc: 4, label: 'E' },
+  { pc: 5, label: 'F' },
+  { pc: 6, label: 'F# / G♭' },
+  { pc: 7, label: 'G' },
+  { pc: 8, label: 'G# / A♭' },
+  { pc: 9, label: 'A' },
+  { pc: 10, label: 'A# / B♭' },
+  { pc: 11, label: 'B' },
+]
+
+/** スケール選択肢。見出しは学習経路の言葉でグルーピング(理論初学者向け) */
+const SCALE_GROUPS: { heading: string; scales: { value: ScaleType; label: string }[] }[] = [
+  {
+    heading: 'まずはこれ',
+    scales: [
+      { value: 'minorPentatonic', label: 'マイナーペンタトニック' },
+      { value: 'majorPentatonic', label: 'メジャーペンタトニック' },
+    ],
+  },
+  {
+    heading: '次のステップ',
+    scales: [
+      { value: 'major', label: 'メジャー(長調)' },
+      { value: 'naturalMinor', label: 'ナチュラルマイナー(短調)' },
+      { value: 'blues', label: 'ブルース' },
+    ],
+  },
+  {
+    heading: '慣れてきたら',
+    scales: [
+      { value: 'harmonicMinor', label: 'ハーモニックマイナー' },
+      { value: 'melodicMinor', label: 'メロディックマイナー' },
+      { value: 'dorian', label: 'ドリアン' },
+      { value: 'mixolydian', label: 'ミクソリディアン' },
+    ],
+  },
+]
+
 export function FretboardBlockView({ block }: { block: FretboardBlock }) {
   const updateBlock = useDocStore((s) => s.updateBlock)
   const [selected, setSelected] = useState<{ string: number; fret: number } | null>(null)
+  /** keyContext 未設定時のルート選択値。A = 最初の一歩の定番(A マイナーペンタ)に合わせる */
+  const [draftRoot, setDraftRoot] = useState(9)
 
   const apply = (fn: (b: FretboardBlock) => FretboardBlock) => updateBlock<FretboardBlock>(block.id, fn)
 
+  const key = block.keyContext
+  const rootShown = key?.tonic ?? draftRoot
+
+  const setRoot = (pc: number) => {
+    if (key) {
+      // スプレッドで preferFlats 等を保持する(spec 003 design)
+      apply((b) => (b.keyContext ? { ...b, keyContext: { ...b.keyContext, tonic: pc } } : b))
+    } else {
+      setDraftRoot(pc)
+    }
+  }
+
+  const setScale = (value: string) => {
+    if (value === '') {
+      apply((b) => ({ ...b, keyContext: undefined }))
+    } else {
+      const scale = value as ScaleType
+      apply((b) => ({ ...b, keyContext: { ...b.keyContext, tonic: rootShown, scale } }))
+    }
+  }
+
   const stringCount = block.tuning.length
   const fretCount = block.fretEnd - block.fretStart
-  const width = LEFT + fretCount * FRET_W + 20
-  const height = TOP + (stringCount - 1) * STRING_GAP + 36
-
-  const stringYPos = (s: number) => TOP + (s - 1) * STRING_GAP
-  /** フレット f を押さえる位置(フレット間の中央)。開放弦はナットの左 */
-  const markerX = (f: number) =>
-    f === 0 ? LEFT - 16 : LEFT + (f - block.fretStart - 0.5) * FRET_W
+  const mirrored = block.mirrored ?? false
+  const geom = fretboardGeometry({
+    stringCount,
+    fretStart: block.fretStart,
+    fretEnd: block.fretEnd,
+    mirrored,
+  })
 
   const markerAt = (string: number, fret: number): FretMarker | undefined =>
     block.markers.find((m) => m.string === string && m.fret === fret)
@@ -89,6 +152,27 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
             }}
           />
         </label>
+        <span className="orientation-toggle">
+          向き
+          <button
+            type="button"
+            className={`btn btn-sm ${!mirrored ? 'btn-active' : ''}`}
+            aria-pressed={!mirrored}
+            title="一般的な指板図の向き(ヘッドが左)"
+            onClick={() => apply((b) => ({ ...b, mirrored: undefined }))}
+          >
+            右利き
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${mirrored ? 'btn-active' : ''}`}
+            aria-pressed={mirrored}
+            title="左右反転して表示します(ヘッドが右)。弦の並びは変わりません"
+            onClick={() => apply((b) => ({ ...b, mirrored: true }))}
+          >
+            左利き
+          </button>
+        </span>
         {selectedMarker && (
           <span className="marker-editor">
             <input
@@ -125,22 +209,61 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
           </span>
         )}
       </div>
-      <svg className="fretboard-svg" width={width} height={height} role="img" aria-label={block.label ?? '指板図'}>
+      {/* 理論レンズ(スケール自動表示)の設定行。ブロック属性の行とは分けて情報をグルーピングする */}
+      <div className="fretboard-toolbar fretboard-lens">
+        <label>
+          ルート
+          <select value={rootShown} onChange={(e) => setRoot(Number(e.target.value))}>
+            {ROOT_OPTIONS.map((o) => (
+              <option key={o.pc} value={o.pc}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          スケール
+          <select value={key?.scale ?? ''} onChange={(e) => setScale(e.target.value)}>
+            <option value="">なし(自動表示オフ)</option>
+            {SCALE_GROUPS.map((g) => (
+              <optgroup key={g.heading} label={g.heading}>
+                {g.scales.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
+        {!key && (
+          <span className="lens-hint">
+            スケールを選ぶと、その音が指板に自動表示されます(ルートは A から変更できます)
+          </span>
+        )}
+      </div>
+      <svg
+        className="fretboard-svg"
+        width={geom.width}
+        height={geom.height}
+        role="img"
+        aria-label={`${block.label ?? '指板図'}${mirrored ? '(左利き表示)' : ''}`}
+      >
         {/* フレット線(縦) */}
         {Array.from({ length: fretCount + 1 }, (_, i) => {
           const fret = block.fretStart + i
-          const x = LEFT + i * FRET_W
+          const x = geom.fretLineX(i)
           return (
             <g key={i}>
               <line
                 className={fret === 0 ? 'nut' : 'fret-line'}
                 x1={x}
-                y1={stringYPos(1)}
+                y1={geom.stringY(1)}
                 x2={x}
-                y2={stringYPos(stringCount)}
+                y2={geom.stringY(stringCount)}
               />
               {i > 0 && (
-                <text className="fret-number" x={x - FRET_W / 2} y={height - 8}>
+                <text className="fret-number" x={geom.fretNumberX(fret)} y={geom.height - 8}>
                   {fret}
                 </text>
               )}
@@ -151,8 +274,8 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
         {Array.from({ length: fretCount }, (_, i) => {
           const fret = block.fretStart + i + 1
           if (!INLAY_FRETS.includes(fret)) return null
-          const x = LEFT + (i + 0.5) * FRET_W
-          const midY = (stringYPos(1) + stringYPos(stringCount)) / 2
+          const x = geom.inlayX(fret)
+          const midY = (geom.stringY(1) + geom.stringY(stringCount)) / 2
           return fret % 12 === 0 ? (
             <g key={fret}>
               <circle className="inlay" cx={x} cy={midY - STRING_GAP} r={3.5} />
@@ -167,10 +290,10 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
           <line
             key={i}
             className="string-line"
-            x1={LEFT}
-            y1={stringYPos(i + 1)}
-            x2={LEFT + fretCount * FRET_W}
-            y2={stringYPos(i + 1)}
+            x1={geom.stringX1}
+            y1={geom.stringY(i + 1)}
+            x2={geom.stringX2}
+            y2={geom.stringY(i + 1)}
             strokeWidth={0.8 + i * 0.25}
           />
         ))}
@@ -180,14 +303,15 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
             const string = si + 1
             const fret = fi === 0 ? (block.fretStart === 0 ? 0 : -1) : block.fretStart + fi
             if (fret < 0) return null
+            const rect = geom.hitRect(string, fret)
             return (
               <rect
                 key={`${string}-${fret}`}
                 className="hit-area"
-                x={markerX(fret) - FRET_W / 2 + 2}
-                y={stringYPos(string) - STRING_GAP / 2}
-                width={FRET_W - 4}
-                height={STRING_GAP}
+                x={rect.x}
+                y={rect.y}
+                width={rect.width}
+                height={rect.height}
                 onClick={() => handleClick(string, fret)}
               />
             )
@@ -195,8 +319,8 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
         )}
         {/* マーカー */}
         {block.markers.map((m) => {
-          const x = markerX(m.fret)
-          const y = stringYPos(m.string)
+          const x = geom.markerX(m.fret)
+          const y = geom.stringY(m.string)
           const isSelected = selected?.string === m.string && selected?.fret === m.fret
           return (
             <g
@@ -213,6 +337,12 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
             </g>
           )
         })}
+        {/* 反転時のみ、図単体でも向きが分かる手がかりを描く(spec 002 AC-7) */}
+        {mirrored && (
+          <text className="head-cue" x={geom.width - 2} y={geom.height - 8}>
+            ヘッド側 ▷
+          </text>
+        )}
       </svg>
     </div>
   )
