@@ -1,6 +1,6 @@
 ---
 title: 指板図のスケール自動マーキングと度数表示
-status: implementing
+status: done
 created: 2026-07-11
 ---
 

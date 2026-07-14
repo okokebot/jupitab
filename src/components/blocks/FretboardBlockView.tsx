@@ -81,28 +81,34 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
   const rootShown = key?.tonic ?? draftRoot
 
   const setRoot = (pc: number) => {
+    // draftRoot は常に最後の選択を覚える(スケール解除時にルート表示が初期値へ飛ばないように)
+    setDraftRoot(pc)
     if (key) {
       // スプレッドで preferFlats 等を保持する(spec 003 design)
       apply((b) => (b.keyContext ? { ...b, keyContext: { ...b.keyContext, tonic: pc } } : b))
-    } else {
-      setDraftRoot(pc)
     }
   }
 
   const setScale = (value: string) => {
     if (value === '') {
+      // 解除後もルート select の表示を保存されていた値に保つ
+      if (key) setDraftRoot(key.tonic)
       apply((b) => ({ ...b, keyContext: undefined }))
     } else {
       const scale = value as ScaleType
-      apply((b) => ({ ...b, keyContext: { ...b.keyContext, tonic: rootShown, scale } }))
+      // tonic は保存済みの値を優先(古いレンダーのクロージャ値で上書きしない)
+      apply((b) => ({
+        ...b,
+        keyContext: { ...b.keyContext, tonic: b.keyContext?.tonic ?? rootShown, scale },
+      }))
     }
   }
 
   // ---- スケール自動マーカー(導出表示: 保存せず表示のたびに計算する)----
   const labelMode = block.labelMode ?? 'degree'
   const autoPositions = key ? scalePositions(block.tuning, block.fretStart, block.fretEnd, key) : []
-  const autoAt = (string: number, fret: number) =>
-    autoPositions.find((p) => p.string === string && p.fret === fret)
+  const autoByCell = new Map(autoPositions.map((p) => [`${p.string}-${p.fret}`, p]))
+  const autoAt = (string: number, fret: number) => autoByCell.get(`${string}-${fret}`)
   /** 現在の表示モードでのラベル(labelMode 'none' のときは呼び出し側でガード) */
   const derivedLabel = (pc: number) =>
     key ? (labelMode === 'name' ? pitchClassName(pc, key.preferFlats) : degreeInKey(pc, key)) : ''
@@ -186,7 +192,9 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
             className={`btn btn-sm ${!mirrored ? 'btn-active' : ''}`}
             aria-pressed={!mirrored}
             title="一般的な指板図の向き(ヘッドが左)"
-            onClick={() => apply((b) => ({ ...b, mirrored: undefined }))}
+            onClick={() => {
+              if (mirrored) apply((b) => ({ ...b, mirrored: undefined }))
+            }}
           >
             右利き
           </button>
@@ -195,7 +203,9 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
             className={`btn btn-sm ${mirrored ? 'btn-active' : ''}`}
             aria-pressed={mirrored}
             title="左右反転して表示します(ヘッドが右)。弦の並びは変わりません"
-            onClick={() => apply((b) => ({ ...b, mirrored: true }))}
+            onClick={() => {
+              if (!mirrored) apply((b) => ({ ...b, mirrored: true }))
+            }}
           >
             左利き
           </button>
@@ -274,14 +284,17 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
                 type="button"
                 className={`btn btn-sm ${labelMode === value ? 'btn-active' : ''}`}
                 aria-pressed={labelMode === value}
-                onClick={() => apply((b) => ({ ...b, labelMode: value }))}
+                onClick={() => {
+                  // 無変化の再クリックで undo エントリを積まない
+                  if (labelMode !== value) apply((b) => ({ ...b, labelMode: value }))
+                }}
               >
                 {label}
               </button>
             ))}
           </span>
         )}
-        {key && labelMode === 'name' && (
+        {key && (
           <button
             type="button"
             className="btn btn-sm"
@@ -414,7 +427,8 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
           // ラベルが空でスケール構成音上にある手動マーカーは、導出ラベルを表示し続ける
           // (調べようとクリックした人から度数情報を奪わない — spec 003 AC-7)
           const auto = !m.label && labelMode !== 'none' ? autoAt(m.string, m.fret) : undefined
-          const text = m.label ?? (auto ? derivedLabel(auto.pc) : undefined)
+          // `||` で空文字列ラベルも導出側に倒す(上の !m.label と判定を揃える)
+          const text = m.label || (auto ? derivedLabel(auto.pc) : undefined)
           return (
             <g
               key={`${m.string}-${m.fret}`}

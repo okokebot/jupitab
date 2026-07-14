@@ -51,9 +51,9 @@ export interface TabNote {
   articulations?: Articulation[]
   /** 次の音への接続(H/P/S) */
   legatoToNext?: Legato
-  /** 不定音程からのスライドイン(音の前に / を描く) */
+  /** 不定音程からのスライドイン(音の前に / を描く)。省略 = なし(ADR 0001: 省略可能フィールドの追加は schemaVersion を上げない) */
   slideIn?: boolean
-  /** 不定音程へのスライドアウト(音の後に \ を描く) */
+  /** 不定音程へのスライドアウト(音の後に \ を描く)。省略 = なし(ADR 0001 に同じ) */
   slideOut?: boolean
   bend?: Bend
   harmonic?: 'natural' | 'artificial'
@@ -65,9 +65,9 @@ export interface TabEvent {
   duration: Duration
   /** 和音 = 複数。空配列 = 休符 */
   notes: TabNote[]
-  /** コード名("Fm7" など)。譜の上に表示 */
+  /** コード名("Fm7" など)。譜の上に表示。省略 = 表示なし(ADR 0001: 省略可能フィールドの追加は schemaVersion を上げない) */
   chord?: string
-  /** メモ("※ 3度トップの形" など)。譜の下に表示 */
+  /** メモ("※ 3度トップの形" など)。譜の下に表示。省略 = 表示なし(ADR 0001 に同じ) */
   memo?: string
 }
 

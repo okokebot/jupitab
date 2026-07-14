@@ -82,13 +82,12 @@ export function scalePositions(
   key: KeyContext,
 ): ScalePosition[] {
   const pcs = scalePitchClasses(key)
-  const frets: number[] = []
-  if (fretStart === 0) frets.push(0)
-  for (let f = fretStart + 1; f <= fretEnd; f++) frets.push(f)
+  // 表示範囲の規則: fretStart === 0 なら開放弦(0)込みの連番、それ以外は fretStart+1 から
+  const firstFret = fretStart === 0 ? 0 : fretStart + 1
 
   const positions: ScalePosition[] = []
   for (let string = 1; string <= tuning.length; string++) {
-    for (const fret of frets) {
+    for (let fret = firstFret; fret <= fretEnd; fret++) {
       const pc = pitchClass(pitchFromTab(tuning, string, fret))
       if (pcs.has(pc)) positions.push({ string, fret, pc, isRoot: pc === key.tonic })
     }
