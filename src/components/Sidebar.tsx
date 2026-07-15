@@ -19,7 +19,7 @@ export function Sidebar({ summaries, activeId, onSelect, onCreate, onDelete, onE
   return (
     <aside className="sidebar">
       <div className="brand">
-        <span className="brand-mark">♪</span> Fretpad
+        <span className="brand-mark">♪</span> Jupitab
       </div>
       <button type="button" className="btn btn-primary new-doc" onClick={onCreate}>
         ＋ 新規ノート
