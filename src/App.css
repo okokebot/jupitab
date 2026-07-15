@@ -208,8 +208,22 @@
 
 .add-block-menu {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 16px;
+}
+
+/* サンプル挿入ボタン群(ブロック追加と区別できるよう左に区切り線を引く) */
+.add-block-samples {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-dim);
 }
 
 /* ---- テキストブロック ---- */

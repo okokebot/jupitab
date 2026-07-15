@@ -1,9 +1,10 @@
-// リズム表現のショーケース用サンプル。
-// データ構造が表現できる音価(全音符〜32分・付点・複付点・休符・連符・タイ)を
-// 1 ブロックで見られるようにする。各小節はちょうど 4/4 に収まる(samples.test.ts で保証)。
+// ブロック種別ごとのショーケース用サンプル。
+// TAB 譜: データ構造が表現できる音価(全音符〜32分・付点・複付点・休符・連符・タイ)を
+// 1 ブロックで見られるようにする。各小節はちょうど実効拍子に収まる(samples.test.ts で保証)。
+// 指板図・コード表: マーカー種別・バレー・運指など主要な表現を 1 ブロックに詰める。
 
 import { nanoid } from 'nanoid'
-import type { Duration, Measure, TabBlock, TabEvent, TabNote } from './types.ts'
+import type { ChordBlock, Duration, FretboardBlock, Measure, TabBlock, TabEvent, TabNote } from './types.ts'
 import { STANDARD_TUNING } from './theory.ts'
 
 type NoteSpec = [string: number, fret: number, extra?: Partial<TabNote>]
@@ -38,11 +39,11 @@ const eighthTriplet: Duration = { base: 8, dots: 0, tuplet: { actual: 3, normal:
 const sixteenthTriplet: Duration = { base: 16, dots: 0, tuplet: { actual: 3, normal: 2 } }
 const quarterTriplet: Duration = { base: 4, dots: 0, tuplet: { actual: 3, normal: 2 } }
 
-export function createRhythmSampleTabBlock(): TabBlock {
+export function createTabSampleBlock(): TabBlock {
   return {
     id: nanoid(8),
     type: 'tab',
-    label: 'リズムサンプル: 全音符 → 32分・付点・休符・3連・タイ・6/8・7/8',
+    label: 'TAB譜サンプル: 全音符 → 32分・付点・休符・3連・タイ・6/8・7/8',
     tuning: [...STANDARD_TUNING],
     measures: [
       // M1: 全音符
@@ -123,5 +124,41 @@ export function createRhythmSampleTabBlock(): TabBlock {
         ev(eighth, [2, 5]),
       ),
     ],
+  }
+}
+
+// 指板図サンプル: スケール自動表示(Am ペンタトニック)+ 手動マーカー 3 種(強調/通常/弱)。
+// 手動マーカーはスケール構成音上に置き、ラベル省略時の導出表示(spec 003 AC-7)も見られるようにする。
+export function createFretboardSampleBlock(): FretboardBlock {
+  return {
+    id: nanoid(8),
+    type: 'fretboard',
+    label: '指板図サンプル: Am ペンタ自動表示 + 手動マーカー(強調/通常/弱)',
+    tuning: [...STANDARD_TUNING],
+    fretStart: 0,
+    fretEnd: 12,
+    keyContext: { tonic: 9, scale: 'minorPentatonic' },
+    markers: [
+      // 6弦5F = A(ルート)。ラベル付き + 強調スタイル
+      { string: 6, fret: 5, label: 'R', style: 'root' },
+      // 3弦5F = C(♭3)。ラベル付き + 弱スタイル
+      { string: 3, fret: 5, label: '♭3', style: 'muted' },
+      // 2弦5F = E(5度)。ラベル省略 → 度数の導出表示になる
+      { string: 2, fret: 5, style: 'primary' },
+    ],
+  }
+}
+
+// コード表サンプル: Bm。ミュート(×)・部分バレー・運指をまとめて見られる定番フォーム。
+export function createChordSampleBlock(): ChordBlock {
+  return {
+    id: nanoid(8),
+    type: 'chord',
+    name: 'Bm',
+    // index 0 = 6弦(データ規約)。6弦ミュート + 2F 部分バレー
+    frets: [null, 2, 4, 4, 3, 2],
+    fingers: [null, 1, 3, 4, 2, 1],
+    baseFret: 1,
+    barres: [{ fret: 2, fromString: 5, toString: 1 }],
   }
 }

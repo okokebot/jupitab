@@ -1,6 +1,10 @@
 import { useDocStore } from '../../store/docStore.ts'
-import type { BlockType } from '../../model/types.ts'
-import { createRhythmSampleTabBlock } from '../../model/samples.ts'
+import type { Block, BlockType } from '../../model/types.ts'
+import {
+  createChordSampleBlock,
+  createFretboardSampleBlock,
+  createTabSampleBlock,
+} from '../../model/samples.ts'
 import { BlockFrame } from './BlockFrame.tsx'
 
 const BLOCK_TYPES: { type: BlockType; label: string }[] = [
@@ -8,6 +12,27 @@ const BLOCK_TYPES: { type: BlockType; label: string }[] = [
   { type: 'tab', label: '＋ TAB 譜' },
   { type: 'fretboard', label: '＋ 指板図' },
   { type: 'chord', label: '＋ コード表' },
+]
+
+const SAMPLES: { key: string; label: string; title: string; create: () => Block }[] = [
+  {
+    key: 'tab',
+    label: 'TAB 譜',
+    title: '音価・休符・連符・変拍子の描画サンプルを挿入',
+    create: createTabSampleBlock,
+  },
+  {
+    key: 'fretboard',
+    label: '指板図',
+    title: 'スケール自動表示と手動マーカーのサンプルを挿入',
+    create: createFretboardSampleBlock,
+  },
+  {
+    key: 'chord',
+    label: 'コード表',
+    title: 'バレー・運指・ミュート入りのコード表サンプルを挿入',
+    create: createChordSampleBlock,
+  },
 ]
 
 export function DocEditor() {
@@ -37,14 +62,21 @@ export function DocEditor() {
             {label}
           </button>
         ))}
-        <button
-          type="button"
-          className="btn"
-          title="音価・休符・連符の描画サンプルを挿入"
-          onClick={() => insertBlock(createRhythmSampleTabBlock())}
-        >
-          ＋ リズムサンプル
-        </button>
+        <span className="add-block-samples">
+          サンプル:
+          {SAMPLES.map(({ key, label, title, create }) => (
+            <button
+              key={key}
+              type="button"
+              className="btn"
+              title={title}
+              aria-label={`${label}のサンプルを挿入`}
+              onClick={() => insertBlock(create())}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
       </div>
     </div>
   )
