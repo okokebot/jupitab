@@ -22,6 +22,8 @@ interface TabSvgProps {
   block: TabBlock
   layout: TabLayout
   cursor?: TabPosition | null
+  /** 再生中のイベント位置(列をハイライト) */
+  playhead?: { measureIndex: number; eventIndex: number } | null
   onPositionClick?: (pos: TabPosition) => void
 }
 
@@ -42,12 +44,13 @@ function noteText(note: TabNote): string {
 }
 
 function bendLabel(semitones: number): string {
+  if (semitones === 0.5) return '¼'
   if (semitones === 1) return '½'
   if (semitones === 2) return 'full'
   return semitones % 2 === 0 ? String(semitones / 2) : `${Math.floor(semitones / 2)}½`
 }
 
-export function TabSvg({ block, layout, cursor, onPositionClick }: TabSvgProps) {
+export function TabSvg({ block, layout, cursor, playhead, onPositionClick }: TabSvgProps) {
   const handlePointerDown = (e: PointerEvent<SVGSVGElement>) => {
     if (!onPositionClick) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -64,7 +67,22 @@ export function TabSvg({ block, layout, cursor, onPositionClick }: TabSvgProps) 
       role="img"
       aria-label={block.label ?? 'TAB 譜'}
     >
-      {cursor && <CursorHighlight layout={layout} cursor={cursor} />}
+      {cursor && (
+        <ColumnHighlight
+          layout={layout}
+          measureIndex={cursor.measureIndex}
+          eventIndex={cursor.eventIndex}
+          className="cursor-column"
+        />
+      )}
+      {playhead && (
+        <ColumnHighlight
+          layout={layout}
+          measureIndex={playhead.measureIndex}
+          eventIndex={playhead.eventIndex}
+          className="playhead-column"
+        />
+      )}
       {layout.lines.map((line, li) => (
         <g key={li}>
           <StaffLines layout={layout} staffTop={line.staffTop} measures={line.measures} />
@@ -148,6 +166,23 @@ function MeasureGlyphs({ layout, staffTop, m, block }: { layout: TabLayout; staf
     const x = laid.x
     const isRest = event.notes.length === 0
 
+    // コード名(行エリア最上部)・メモ(リズム記号の下)
+    if (event.chord) {
+      glyphs.push(
+        <text key={`chord-${ei}`} className="chord-text" x={x} y={staffTop - layout.topPad + 12}>
+          {event.chord}
+        </text>,
+      )
+    }
+    if (event.memo) {
+      // 連符ラベル(≒ staffBottom+39)と重ならない高さに置く
+      glyphs.push(
+        <text key={`memo-${ei}`} className="memo-text" x={x} y={staffBottom + M.rhythmHeight + 17}>
+          {event.memo}
+        </text>,
+      )
+    }
+
     if (isRest) {
       glyphs.push(<RestGlyph key={`rest-${ei}`} x={x} yTop={stemTop} base={event.duration.base} />)
     } else {
@@ -186,6 +221,27 @@ function MeasureGlyphs({ layout, staffTop, m, block }: { layout: TabLayout; staf
         </g>,
       )
 
+      // スライドイン(/)・スライドアウト(\)
+      if (note.slideIn) {
+        glyphs.push(
+          <line key={`sin-${ei}-${note.string}`} className="slide" x1={x - w / 2 - 9} y1={y + 4} x2={x - w / 2 - 2} y2={y - 3} />,
+        )
+      }
+      if (note.slideOut) {
+        glyphs.push(
+          <line key={`sout-${ei}-${note.string}`} className="slide" x1={x + w / 2 + 2} y1={y - 3} x2={x + w / 2 + 9} y2={y + 4} />,
+        )
+      }
+
+      // 運指(フレット数字の右肩に小さく)
+      if (note.finger !== undefined) {
+        glyphs.push(
+          <text key={`finger-${ei}-${note.string}`} className="finger-text" x={x + w / 2 + 2} y={y - 3}>
+            {note.finger === 0 ? 'T' : note.finger}
+          </text>,
+        )
+      }
+
       // スタッカート(符幹の下に点)
       if (note.articulations?.includes('staccato')) {
         glyphs.push(<circle key={`stac-${ei}-${note.string}`} className="rhythm-dot" cx={x} cy={stemBottom + 5} r={1.8} />)
@@ -210,9 +266,18 @@ function MeasureGlyphs({ layout, staffTop, m, block }: { layout: TabLayout; staf
         if (to !== null) {
           const midX = (x + to) / 2
           if (note.legatoToNext === 'slide') {
+            // 下降スライドは線を下向きに(次の同弦音とフレットを比較)
+            const nextFret = nextNoteFret(block, laid, note.string)
+            const descending = nextFret !== null && nextFret < note.fret
             glyphs.push(
               <g key={`slide-${ei}-${note.string}`}>
-                <line className="slide" x1={x + 8} y1={y + 3} x2={to - 8} y2={y - 3} />
+                <line
+                  className="slide"
+                  x1={x + 8}
+                  y1={descending ? y - 3 : y + 3}
+                  x2={to - 8}
+                  y2={descending ? y + 3 : y - 3}
+                />
                 <text className="technique-text" x={midX} y={staffTop - 6}>S</text>
               </g>,
             )
@@ -229,18 +294,43 @@ function MeasureGlyphs({ layout, staffTop, m, block }: { layout: TabLayout; staf
         }
       }
 
-      // ベンド(上向き矢印 + 量)
+      // ベンド(kind に応じて描き分け)
       if (note.bend) {
         const topY = staffTop - 12
+        const parts: JSX.Element[] = []
+        if (note.bend.kind === 'prebend') {
+          // プリベンド: 垂直線 + 上矢印(先に音程を上げてから弾く)
+          parts.push(
+            <line key="pb" x1={x + 12} y1={y - 4} x2={x + 12} y2={topY + 5} />,
+            <path key="pb-a" d={`M ${x + 9} ${topY + 10} L ${x + 12} ${topY + 4} L ${x + 15} ${topY + 10}`} fill="none" />,
+          )
+        } else {
+          // 通常ベンド: 上向きカーブ + 矢印
+          parts.push(
+            <path key="up" d={`M ${x + 7} ${y - 4} Q ${x + 15} ${y - 8} ${x + 15} ${topY + 6}`} fill="none" />,
+            <path key="up-a" d={`M ${x + 12} ${topY + 10} L ${x + 15} ${topY + 4} L ${x + 18} ${topY + 10}`} fill="none" />,
+          )
+        }
+        if (note.bend.kind === 'bendRelease') {
+          // リリース: 頂点から下向きカーブ + 下矢印
+          parts.push(
+            <path key="down" d={`M ${x + 15} ${topY + 6} Q ${x + 24} ${topY + 8} ${x + 24} ${y - 6}`} fill="none" />,
+            <path key="down-a" d={`M ${x + 21} ${y - 11} L ${x + 24} ${y - 5} L ${x + 27} ${y - 11}`} fill="none" />,
+          )
+        }
         glyphs.push(
           <g key={`bend-${ei}-${note.string}`} className="bend">
-            <path d={`M ${x + 7} ${y - 4} Q ${x + 15} ${y - 8} ${x + 15} ${topY + 6}`} fill="none" />
-            <path d={`M ${x + 12} ${topY + 10} L ${x + 15} ${topY + 4} L ${x + 18} ${topY + 10}`} fill="none" />
-            <text className="technique-text" x={x + 15} y={topY} textAnchor="middle">
-              {bendLabel(note.bend.semitones)}
+            {parts}
+            <text className="technique-text" x={x + (note.bend.kind === 'prebend' ? 12 : 15)} y={topY} textAnchor="middle">
+              {(note.bend.kind === 'prebend' ? 'pre ' : '') + bendLabel(note.bend.semitones)}
             </text>
           </g>,
         )
+      }
+
+      // 人工ハーモニクスは A.H. を明示(自然は ◇ のみ)
+      if (note.harmonic === 'artificial' && !annotations.includes('A.H.')) {
+        annotations.push('A.H.')
       }
 
       for (const art of note.articulations ?? []) {
@@ -314,6 +404,17 @@ function prevEventX(layout: TabLayout, m: LaidMeasure, laid: LaidEvent): number 
   return laid.x - 20
 }
 
+/** 次イベントの同じ弦の音のフレット(スライドの向き判定用)。なければ null */
+function nextNoteFret(block: TabBlock, laid: LaidEvent, string: number): number | null {
+  const measure = block.measures[laid.measureIndex]
+  const nextEvent =
+    measure && laid.eventIndex + 1 < measure.events.length
+      ? measure.events[laid.eventIndex + 1]
+      : block.measures[laid.measureIndex + 1]?.events[0]
+  const note = nextEvent?.notes.find((n) => n.string === string)
+  return note && !note.dead ? note.fret : null
+}
+
 /** レガート・スライドの終点: 次イベントの x(小節をまたぐ)。次がなければ null */
 function nextEventX(layout: TabLayout, block: TabBlock, laid: LaidEvent): number | null {
   const measure = block.measures[laid.measureIndex]
@@ -347,12 +448,22 @@ function RestGlyph({ x, yTop, base }: { x: number; yTop: number; base: number })
   )
 }
 
-function CursorHighlight({ layout, cursor }: { layout: TabLayout; cursor: TabPosition }) {
-  const geom = findEvent(layout, cursor.measureIndex, cursor.eventIndex)
+function ColumnHighlight({
+  layout,
+  measureIndex,
+  eventIndex,
+  className,
+}: {
+  layout: TabLayout
+  measureIndex: number
+  eventIndex: number
+  className: string
+}) {
+  const geom = findEvent(layout, measureIndex, eventIndex)
   if (!geom) return null
   return (
     <rect
-      className="cursor-column"
+      className={className}
       x={geom.laid.x - geom.laid.width / 2 + 2}
       y={geom.staffTop - 8}
       width={geom.laid.width - 4}

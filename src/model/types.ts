@@ -151,6 +151,8 @@ export interface ChordBlock {
   fingers?: (0 | 1 | 2 | 3 | 4 | null)[]
   baseFret: number
   barres?: Barre[]
+  /** 左右反転(左利き)表示。省略 = false = 右利き表示(ADR 0001 に同じ) */
+  mirrored?: boolean
 }
 
 export interface TextBlock {

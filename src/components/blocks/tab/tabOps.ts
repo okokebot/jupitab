@@ -106,21 +106,73 @@ export function toggleLegato(block: TabBlock, pos: TabPos, legato: Legato): TabB
   }))
 }
 
-/** なし → 半音 → 全音 → なし を循環 */
+/** なし → ¼ → ½ → full → full リリース → なし を循環 */
 export function cycleBend(block: TabBlock, pos: TabPos): TabBlock {
+  const order: (Bend | undefined)[] = [
+    undefined,
+    { semitones: 0.5, kind: 'bend' },
+    { semitones: 1, kind: 'bend' },
+    { semitones: 2, kind: 'bend' },
+    { semitones: 2, kind: 'bendRelease' },
+  ]
   return updateNote(block, pos, (n) => {
-    const next: Bend | undefined =
-      n.bend === undefined
-        ? { semitones: 1, kind: 'bend' }
-        : n.bend.semitones === 1
-          ? { semitones: 2, kind: 'bend' }
-          : undefined
+    const i = order.findIndex((b) => b?.semitones === n.bend?.semitones && b?.kind === n.bend?.kind)
+    // 循環外の値(プリベンド等)からはリセット
+    const next = i >= 0 ? order[(i + 1) % order.length] : undefined
     return { ...n, bend: next }
+  })
+}
+
+/** 不定音程からのスライドイン(/5)をトグル */
+export function toggleSlideIn(block: TabBlock, pos: TabPos): TabBlock {
+  return updateNote(block, pos, (n) => ({ ...n, slideIn: n.slideIn ? undefined : true }))
+}
+
+/** 不定音程へのスライドアウト(5\)をトグル */
+export function toggleSlideOut(block: TabBlock, pos: TabPos): TabBlock {
+  return updateNote(block, pos, (n) => ({ ...n, slideOut: n.slideOut ? undefined : true }))
+}
+
+/** プリベンドをトグルする。ベンドがなければ full のプリベンドを付ける */
+export function togglePrebend(block: TabBlock, pos: TabPos): TabBlock {
+  return updateNote(block, pos, (n) => {
+    if (!n.bend) return { ...n, bend: { semitones: 2, kind: 'prebend' } }
+    if (n.bend.kind === 'prebend') return { ...n, bend: undefined }
+    return { ...n, bend: { ...n.bend, kind: 'prebend' } }
+  })
+}
+
+/** 運指を なし → 1 → 2 → 3 → 4 → T(親指) → なし と循環 */
+export function cycleFinger(block: TabBlock, pos: TabPos): TabBlock {
+  const order = [undefined, 1, 2, 3, 4, 0] as const
+  return updateNote(block, pos, (n) => {
+    const i = order.indexOf(n.finger as (typeof order)[number])
+    return { ...n, finger: order[(i + 1) % order.length] }
+  })
+}
+
+/** ハーモニクスを なし → 自然 → 人工 → なし と循環 */
+export function cycleHarmonic(block: TabBlock, pos: TabPos): TabBlock {
+  return updateNote(block, pos, (n) => {
+    const next = n.harmonic === undefined ? 'natural' : n.harmonic === 'natural' ? 'artificial' : undefined
+    return { ...n, harmonic: next }
   })
 }
 
 export function setEventDuration(block: TabBlock, m: number, e: number, duration: Duration): TabBlock {
   return updateEvent(block, m, e, (ev) => ({ ...ev, duration }))
+}
+
+/** コード名を設定する。空文字・空白のみで削除 */
+export function setEventChord(block: TabBlock, m: number, e: number, chord: string): TabBlock {
+  const text = chord.trim()
+  return updateEvent(block, m, e, (ev) => ({ ...ev, chord: text || undefined }))
+}
+
+/** メモを設定する。空文字・空白のみで削除 */
+export function setEventMemo(block: TabBlock, m: number, e: number, memo: string): TabBlock {
+  const text = memo.trim()
+  return updateEvent(block, m, e, (ev) => ({ ...ev, memo: text || undefined }))
 }
 
 export function insertEventAfter(block: TabBlock, m: number, e: number, duration: Duration): TabBlock {
@@ -152,6 +204,34 @@ export function setTimeSignature(
   ts: TimeSignature | undefined,
 ): TabBlock {
   return updateMeasure(block, m, (measure) => ({ ...measure, timeSignature: ts }))
+}
+
+/** 1 本の弦のチューニングを変更する(stringIdx は 0 = 1弦) */
+export function setStringTuning(block: TabBlock, stringIdx: number, midi: number): TabBlock {
+  return { ...block, tuning: block.tuning.map((m, i) => (i === stringIdx ? midi : m)) }
+}
+
+/**
+ * 弦数を変更する(4〜8)。増やすと最低弦の完全4度下を足し、
+ * 減らすと低音弦側から削って、なくなった弦の音も取り除く。
+ */
+export function setStringCount(block: TabBlock, count: number): TabBlock {
+  const c = Math.min(8, Math.max(4, count))
+  if (c === block.tuning.length) return block
+  let tuning = [...block.tuning]
+  while (tuning.length < c) tuning.push((tuning.at(-1) ?? 40) - 5)
+  tuning = tuning.slice(0, c)
+  return {
+    ...block,
+    tuning,
+    measures: block.measures.map((measure) => ({
+      ...measure,
+      events: measure.events.map((ev) => ({
+        ...ev,
+        notes: ev.notes.filter((n) => n.string <= c),
+      })),
+    })),
+  }
 }
 
 export function insertMeasureAfter(block: TabBlock, m: number, duration: Duration): TabBlock {

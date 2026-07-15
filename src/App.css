@@ -579,7 +579,8 @@
   stroke-width: 1;
 }
 
-.fretboard-svg .nut {
+.fretboard-svg .nut,
+.chord-svg .nut {
   stroke: var(--text);
   stroke-width: 4;
 }
@@ -588,7 +589,8 @@
   stroke: var(--staff);
 }
 
-.fretboard-svg .fret-number {
+.fretboard-svg .fret-number,
+.chord-svg .fret-number {
   fill: var(--text-dim);
   font-size: 10.5px;
   text-anchor: middle;
@@ -596,7 +598,8 @@
 }
 
 /* 反転(左利き)表示時のヘッド側の手がかり。エクスポート画像単体でも向きが伝わるように SVG 内に描く */
-.fretboard-svg .head-cue {
+.fretboard-svg .head-cue,
+.chord-svg .head-cue {
   fill: var(--text-dim);
   font-size: 10.5px;
   text-anchor: end;
@@ -609,7 +612,8 @@
   white-space: nowrap;
 }
 
-.fretboard-svg .inlay {
+.fretboard-svg .inlay,
+.chord-svg .inlay {
   fill: var(--border);
 }
 
@@ -715,21 +719,14 @@
   text-anchor: middle;
 }
 
-.chord-svg .fret-line,
-.chord-svg .string-line {
+.chord-svg .fret-line {
   stroke: var(--staff);
   stroke-width: 1;
 }
 
-.chord-svg .nut {
-  stroke: var(--text);
-}
-
-.chord-svg .base-fret-label {
-  fill: var(--text-dim);
-  font-size: 11px;
-  text-anchor: middle;
-  font-family: var(--mono);
+/* 弦の太さは JSX の strokeWidth(6弦側ほど太いグラデーション)に任せる */
+.chord-svg .string-line {
+  stroke: var(--staff);
 }
 
 .chord-svg .chord-dot circle {
@@ -739,7 +736,7 @@
 
 .chord-svg .chord-dot text {
   fill: var(--bg-block);
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 700;
   text-anchor: middle;
   pointer-events: none;
@@ -757,13 +754,39 @@
   cursor: pointer;
 }
 
+/* 押弦中の弦の開放域ホバーで「ここを押せば開放になる」を示す薄い ○。
+   通常 opacity 0 なので画像出力(SVG 複製)には視覚上混入しない */
+.chord-svg .open-mute-preview {
+  fill: var(--text-dim);
+  font-size: 12px;
+  text-anchor: middle;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chord-svg .chord-head:hover .open-mute-preview {
+  opacity: 0.4;
+}
+
 .finger-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 4px;
   font-size: 12px;
   color: var(--text-dim);
   width: 100%;
+}
+
+.finger-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.finger-string-label {
+  font-size: 10px;
+  color: var(--text-dim);
 }
 
 .finger-row select {

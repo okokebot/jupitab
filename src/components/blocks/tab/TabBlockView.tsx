@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { Articulation, Duration, TabBlock, TimeSignature } from '../../../model/types.ts'
 import { effectiveTimeSignature } from '../../../model/types.ts'
 import { DEFAULT_DURATION } from '../../../model/factory.ts'
-import { doubleBase, halveBase } from '../../../model/duration.ts'
+import { cycleTuplet, doubleBase, halveBase } from '../../../model/duration.ts'
 import { noteName, pitchFromTab } from '../../../model/theory.ts'
-import { layoutTab, type TabPosition } from '../../../layout/tabLayout.ts'
+import { DEFAULT_TEMPO, planTabPlayback, type PlaybackMarker } from '../../../model/playback.ts'
+import { findEvent, layoutTab, TAB_METRICS, type TabPosition } from '../../../layout/tabLayout.ts'
+import { play, type PlaybackHandle } from '../../../audio/player.ts'
 import { useDocStore } from '../../../store/docStore.ts'
 import { TabSvg } from './TabSvg.tsx'
 import { KEYMAP } from './keymap.ts'
@@ -28,12 +30,73 @@ function samePos(a: ops.TabPos, b: ops.TabPos): boolean {
   return a.m === b.m && a.e === b.e && a.s === b.s
 }
 
+/** コード名・メモ編集の対象。開いた時点のイベント位置を固定する */
+interface TextEditTarget {
+  kind: 'chord' | 'memo'
+  m: number
+  e: number
+}
+
+/** 譜面上に重ねる 1 行テキスト入力。Enter/blur で確定、Esc で取り消し */
+function FloatingTextInput({
+  initial,
+  placeholder,
+  style,
+  onCommit,
+  onCancel,
+}: {
+  initial: string
+  placeholder: string
+  style: { left: number; top: number }
+  onCommit: (value: string) => void
+  onCancel: () => void
+}) {
+  const [value, setValue] = useState(initial)
+  const done = useRef(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }, [])
+
+  const finish = (fn: () => void) => {
+    if (done.current) return
+    done.current = true
+    fn()
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      className="tab-inline-input"
+      style={style}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => finish(() => onCommit(value))}
+      onKeyDown={(e) => {
+        e.stopPropagation() // TAB エディタのキーバインドに流さない
+        if (e.key === 'Enter') finish(() => onCommit(value))
+        if (e.key === 'Escape') finish(onCancel)
+      }}
+    />
+  )
+}
+
 export function TabBlockView({ block }: { block: TabBlock }) {
   const updateBlock = useDocStore((s) => s.updateBlock)
   const [cursor, setCursor] = useState<ops.TabPos | null>(null)
   const [currentDuration, setCurrentDuration] = useState<Duration>(DEFAULT_DURATION)
   const [showHelp, setShowHelp] = useState(false)
+  const [showTuningEditor, setShowTuningEditor] = useState(false)
+  const [textEdit, setTextEdit] = useState<TextEditTarget | null>(null)
   const digitBuffer = useRef<{ value: number; at: number; pos: ops.TabPos } | null>(null)
+
+  // 再生。playHandle は再生中のみ非 null(アンマウント時は止める)
+  const [playhead, setPlayhead] = useState<PlaybackMarker | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const playHandle = useRef<PlaybackHandle | null>(null)
+  useEffect(() => () => playHandle.current?.stop(), [])
 
   // コンテナ幅に追従して折り返す
   const areaRef = useRef<HTMLDivElement>(null)
@@ -52,6 +115,21 @@ export function TabBlockView({ block }: { block: TabBlock }) {
   const layout = useMemo(() => layoutTab(block, width), [block, width])
 
   const apply = (fn: (b: TabBlock) => TabBlock) => updateBlock<TabBlock>(block.id, fn)
+
+  const togglePlay = () => {
+    if (playing) {
+      playHandle.current?.stop()
+      return
+    }
+    setPlaying(true)
+    playHandle.current = play(planTabPlayback(block), {
+      onMarker: setPlayhead,
+      onEnd: () => {
+        setPlaying(false)
+        setPlayhead(null)
+      },
+    })
+  }
 
   const moveCursor = (pos: ops.TabPos | null) => {
     if (pos) setCursor(ops.clampPos(block, pos))
@@ -80,6 +158,19 @@ export function TabBlockView({ block }: { block: TabBlock }) {
   }
 
   const toggleArt = (art: Articulation) => cursor && apply((b) => ops.toggleArticulation(b, cursor, art))
+
+  const openTextEdit = (kind: TextEditTarget['kind']) => {
+    if (cursor && ops.eventAt(block, cursor.m, cursor.e)) setTextEdit({ kind, m: cursor.m, e: cursor.e })
+  }
+
+  const closeTextEdit = (commit?: { value: string }) => {
+    if (commit && textEdit) {
+      const { kind, m, e } = textEdit
+      apply((b) => (kind === 'chord' ? ops.setEventChord(b, m, e, commit.value) : ops.setEventMemo(b, m, e, commit.value)))
+    }
+    setTextEdit(null)
+    areaRef.current?.focus()
+  }
 
   const advance = () => {
     if (!cursor) return
@@ -120,6 +211,13 @@ export function TabBlockView({ block }: { block: TabBlock }) {
       case ' ':
         advance()
         break
+      case 'Enter': {
+        // カーソル直後にイベントを挿入(採譜中の「音が 1 個多かった」に対応)
+        const next = ops.insertEventAfter(block, cursor.m, cursor.e, currentDuration)
+        apply(() => next)
+        setCursor({ ...cursor, e: cursor.e + 1 })
+        break
+      }
       case '|':
         apply((b) => ops.insertMeasureAfter(b, cursor.m, currentDuration))
         setCursor({ m: cursor.m + 1, e: 0, s: cursor.s })
@@ -145,10 +243,7 @@ export function TabBlockView({ block }: { block: TabBlock }) {
         changeDuration((d) => ({ ...d, dots: ((d.dots + 1) % 3) as Duration['dots'] }))
         break
       case 't':
-        changeDuration((d) => ({
-          ...d,
-          tuplet: d.tuplet ? undefined : { actual: 3, normal: 2 },
-        }))
+        changeDuration(cycleTuplet)
         break
       case 'y':
         apply((b) => ops.toggleTie(b, cursor))
@@ -186,6 +281,33 @@ export function TabBlockView({ block }: { block: TabBlock }) {
       case 'b':
         apply((b) => ops.cycleBend(b, cursor))
         break
+      case 'B':
+        apply((b) => ops.togglePrebend(b, cursor))
+        break
+      case 'f':
+        apply((b) => ops.cycleFinger(b, cursor))
+        break
+      case 'o':
+        apply((b) => ops.cycleHarmonic(b, cursor))
+        break
+      case 'e':
+        toggleArt('tenuto')
+        break
+      case 'w':
+        toggleArt('marcato')
+        break
+      case 'i':
+        apply((b) => ops.toggleSlideIn(b, cursor))
+        break
+      case 'u':
+        apply((b) => ops.toggleSlideOut(b, cursor))
+        break
+      case 'c':
+        openTextEdit('chord')
+        break
+      case 'n':
+        openTextEdit('memo')
+        break
       case 'Escape':
         setCursor(null)
         break
@@ -218,9 +340,25 @@ export function TabBlockView({ block }: { block: TabBlock }) {
           value={block.label ?? ''}
           onChange={(e) => apply((b) => ({ ...b, label: e.target.value || undefined }))}
         />
+        <button type="button" className="btn" onClick={togglePlay} title="TAB を再生 / 停止">
+          {playing ? '■ 停止' : '▶ 再生'}
+        </button>
+        <label className="tempo-label" title="テンポ(BPM、4分音符基準)">
+          ♩=
+          <input
+            type="number"
+            min={20}
+            max={400}
+            value={block.tempo ?? DEFAULT_TEMPO}
+            onChange={(e) => {
+              const t = Number(e.target.value)
+              apply((b) => ({ ...b, tempo: Number.isFinite(t) && t > 0 ? t : undefined }))
+            }}
+          />
+        </label>
         <select
           value={tuningKey(block.tuning)}
-          title="チューニング"
+          title="チューニング(プリセット)。弦ごとの変更は「調弦」から"
           onChange={(e) => {
             const t = TUNINGS[e.target.value]
             if (t) apply((b) => ({ ...b, tuning: [...t] }))
@@ -232,6 +370,14 @@ export function TabBlockView({ block }: { block: TabBlock }) {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          className={`btn ${showTuningEditor ? 'btn-active' : ''}`}
+          title="弦ごとのチューニング編集と弦数変更"
+          onClick={() => setShowTuningEditor((v) => !v)}
+        >
+          調弦
+        </button>
         <label className="capo-label">
           カポ
           <input
@@ -301,6 +447,48 @@ export function TabBlockView({ block }: { block: TabBlock }) {
           ))}
         </div>
       )}
+      {showTuningEditor && (
+        <div className="tuning-editor">
+          {block.tuning.map((midi, i) => (
+            <label key={i}>
+              {i + 1}弦
+              <select
+                value={midi}
+                onChange={(e) => apply((b) => ops.setStringTuning(b, i, Number(e.target.value)))}
+              >
+                {/* F#1(30)〜C5(72) を半音刻みで */}
+                {Array.from({ length: 43 }, (_, k) => 30 + k).map((m) => (
+                  <option key={m} value={m}>
+                    {noteName(m)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={block.tuning.length <= 4}
+            title="低音弦を減らす(その弦の音は消えます)"
+            onClick={() => {
+              const next = ops.setStringCount(block, block.tuning.length - 1)
+              apply(() => next)
+              setCursor((c) => (c ? ops.clampPos(next, c) : c))
+            }}
+          >
+            − 弦
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={block.tuning.length >= 8}
+            title="低音弦を足す(最低弦の完全4度下)"
+            onClick={() => apply((b) => ops.setStringCount(b, b.tuning.length + 1))}
+          >
+            ＋ 弦
+          </button>
+        </div>
+      )}
       <div
         ref={areaRef}
         className="tab-area"
@@ -309,7 +497,37 @@ export function TabBlockView({ block }: { block: TabBlock }) {
         aria-label="TAB 譜エディタ"
         onKeyDown={handleKeyDown}
       >
-        <TabSvg block={block} layout={layout} cursor={svgCursor} onPositionClick={(p) => setCursor({ m: p.measureIndex, e: p.eventIndex, s: p.string })} />
+        <div className="tab-svg-wrap">
+          <TabSvg
+            block={block}
+            layout={layout}
+            cursor={svgCursor}
+            playhead={playing ? playhead : null}
+            onPositionClick={(p) => setCursor({ m: p.measureIndex, e: p.eventIndex, s: p.string })}
+          />
+          {textEdit &&
+            (() => {
+              const geom = findEvent(layout, textEdit.m, textEdit.e)
+              if (!geom) return null
+              const ev = ops.eventAt(block, textEdit.m, textEdit.e)
+              const isChord = textEdit.kind === 'chord'
+              return (
+                <FloatingTextInput
+                  key={`${textEdit.kind}-${textEdit.m}-${textEdit.e}`}
+                  initial={(isChord ? ev?.chord : ev?.memo) ?? ''}
+                  placeholder={isChord ? 'コード名' : 'メモ'}
+                  style={{
+                    left: geom.laid.x,
+                    top: isChord
+                      ? geom.staffTop - layout.topPad
+                      : geom.staffTop + layout.staffHeight + TAB_METRICS.rhythmHeight,
+                  }}
+                  onCommit={(value) => closeTextEdit({ value })}
+                  onCancel={() => closeTextEdit()}
+                />
+              )
+            })()}
+        </div>
       </div>
     </div>
   )

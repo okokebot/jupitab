@@ -15,7 +15,20 @@ npm test           # 全ユニットテスト (vitest run)
 npx vitest run src/model/duration.test.ts   # 単一ファイルのテスト
 npx vitest -t 'テスト名'                     # 名前でフィルタ
 npm run lint       # oxlint
+npm run typecheck  # tsc -b(ビルドなしの型チェック)
 ```
+
+## 開発ワークフロー(仕様駆動)
+
+機能追加・振る舞い変更は **Spec → Plan → Implement** で進める。詳細は `docs/specs/README.md`。
+
+- `/specify <要望>` → `docs/specs/NNN-slug/spec.md`(要求仕様。vision 整合・非ゴール判定を含む)
+- `/spec-plan NNN-slug` → `design.md` + `tasks.md`(技術設計とタスク分解)
+- `/spec-implement NNN-slug` → タスクを順に実装(テストファースト、タスク単位コミット)
+- 数行の bugfix・リファクタは spec 不要。ただし保存形式・不変条件・キーバインドに触れる変更は必ず spec を書く
+- **完了の定義**: `npm run lint` / `npm run typecheck` / `npm test` が green + 受け入れ基準充足 + 不変条件無傷
+- レビュー用サブエージェント: `spec-reviewer`(仕様・設計の監査)、`invariant-guardian`(diff の不変条件監査。コミット前に使う)、`ux-designer`(操作フロー・学習体験のペルソナ視点レビュー)、`ui-designer`(見た目 — 配色・余白・譜面 SVG 描画・画像出力品質の評価と提案)
+- アーキテクチャ判断(不変条件の増減・技術採用)は `docs/adr/` に記録してから CLAUDE.md へ反映
 
 ## アーキテクチャ
 
@@ -31,7 +44,7 @@ npm run lint       # oxlint
 
 - **音高は保存しない**。音は「弦 + フレット」で保持し、実音高は `pitchFromTab(tuning, string, fret, capo)` で導出する(単一の真実源)
 - **リズム計算に浮動小数点を使わない**。音価は `fraction.ts` の分数演算で厳密に扱う(連符でも誤差ゼロ)。合計・比較は `durationValue` / `measureUsed` / `measureCapacity` を使う
-- **永続化データは必ず `migrate.ts` を通す**(IndexedDB 読込・JSON インポート共通)。保存形式を変えるときは `schemaVersion` を上げて移行関数を足す
+- **永続化データは必ず `migrate.ts` を通す**(IndexedDB 読込・JSON インポート共通)。旧データの解釈が変わる変更(必須フィールドの増減・型や意味の変更)では `schemaVersion` を上げて移行関数を足す。欠落 = 従来挙動となる省略可能フィールドの追加では上げない([ADR 0001](docs/adr/0001-additive-optional-fields-keep-schema-version.md))
 - **拍子は小節ごとの省略可能フィールド**で、`effectiveTimeSignature()` により前小節から継承される。小節の拍子を直接読まないこと
 - **undo の粒度 = store 更新 1 回**。テキストブロックが下書きをローカル state に持ち blur で 1 回だけ commit するのは意図的(キーストロークごとに履歴を作らない)
 

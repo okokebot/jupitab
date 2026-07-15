@@ -18,6 +18,10 @@ export const TAB_METRICS = {
   measureLeadPad: 12,
   measureTailPad: 8,
   tsWidth: 20,
+  /** コード名行(ブロック内にコード名があるとき topPad に加算) */
+  chordHeight: 16,
+  /** メモ行(ブロック内にメモがあるとき行高に加算) */
+  memoHeight: 16,
 } as const
 
 export interface LaidEvent {
@@ -62,20 +66,27 @@ export interface TabLayout {
   height: number
   stringCount: number
   staffHeight: number
+  /** 実効の上余白(コード名があれば chordHeight ぶん広い) */
+  topPad: number
+  /** メモ行の有無(行高と hitTest の範囲に影響) */
+  hasMemos: boolean
 }
 
 export function flagCount(base: Duration['base']): number {
   return base >= 8 ? Math.log2(base) - 2 : 0
 }
 
-function eventWidth(d: Duration): number {
-  const v = toNumber(durationValue(d)) // 全音符 = 1
+function eventWidth(event: TabEvent): number {
+  const v = toNumber(durationValue(event.duration)) // 全音符 = 1
   const w = 30 * (v * 8) ** 0.55 // 8分音符 = 30px 基準で緩やかに伸縮
-  return Math.min(76, Math.max(24, w))
+  const base = Math.min(76, Math.max(24, w))
+  // 長いコード名が隣のイベントと重ならないだけの幅を確保
+  const chordW = event.chord ? event.chord.length * 8 + 8 : 0
+  return Math.max(base, chordW)
 }
 
 function measureContentWidth(measure: Measure, showTs: boolean): number {
-  const events = measure.events.reduce((acc, e) => acc + eventWidth(e.duration), 0)
+  const events = measure.events.reduce((acc, e) => acc + eventWidth(e), 0)
   return (
     TAB_METRICS.measureLeadPad +
     (showTs ? TAB_METRICS.tsWidth : 0) +
@@ -131,7 +142,11 @@ function tupletGroups(events: LaidEvent[]): EventRange[] {
 export function layoutTab(block: TabBlock, width: number): TabLayout {
   const stringCount = block.tuning.length
   const staffHeight = (stringCount - 1) * TAB_METRICS.stringGap
-  const lineHeight = TAB_METRICS.topPad + staffHeight + TAB_METRICS.rhythmHeight + TAB_METRICS.linePad
+  const allEvents = block.measures.flatMap((m) => m.events)
+  const topPad = TAB_METRICS.topPad + (allEvents.some((e) => e.chord) ? TAB_METRICS.chordHeight : 0)
+  const hasMemos = allEvents.some((e) => e.memo)
+  const lineHeight =
+    topPad + staffHeight + TAB_METRICS.rhythmHeight + (hasMemos ? TAB_METRICS.memoHeight : 0) + TAB_METRICS.linePad
 
   const lines: TabLine[] = []
   let current: LaidMeasure[] = []
@@ -139,7 +154,7 @@ export function layoutTab(block: TabBlock, width: number): TabLayout {
 
   const pushLine = () => {
     if (current.length === 0) return
-    lines.push({ measures: current, staffTop: TAB_METRICS.topPad + lines.length * lineHeight })
+    lines.push({ measures: current, staffTop: topPad + lines.length * lineHeight })
     current = []
     cursorX = TAB_METRICS.labelWidth
   }
@@ -156,7 +171,7 @@ export function layoutTab(block: TabBlock, width: number): TabLayout {
     const mX = cursorX
     let eX = mX + TAB_METRICS.measureLeadPad + (showTs ? TAB_METRICS.tsWidth : 0)
     const events: LaidEvent[] = measure.events.map((event, eventIndex) => {
-      const w = eventWidth(event.duration)
+      const w = eventWidth(event)
       const laid: LaidEvent = {
         event,
         measureIndex: index,
@@ -189,6 +204,8 @@ export function layoutTab(block: TabBlock, width: number): TabLayout {
     height: Math.max(lines.length, 1) * lineHeight + 8,
     stringCount,
     staffHeight,
+    topPad,
+    hasMemos,
   }
 }
 
@@ -203,8 +220,12 @@ export interface TabPosition {
 /** クリック座標 → (小節, イベント, 弦)。範囲外は null */
 export function hitTest(layout: TabLayout, x: number, y: number): TabPosition | null {
   for (const line of layout.lines) {
-    const yTop = line.staffTop - TAB_METRICS.topPad
-    const yBottom = line.staffTop + layout.staffHeight + TAB_METRICS.rhythmHeight
+    const yTop = line.staffTop - layout.topPad
+    const yBottom =
+      line.staffTop +
+      layout.staffHeight +
+      TAB_METRICS.rhythmHeight +
+      (layout.hasMemos ? TAB_METRICS.memoHeight : 0)
     if (y < yTop || y > yBottom) continue
     for (const m of line.measures) {
       if (x < m.x || x > m.x + m.width) continue

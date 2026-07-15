@@ -84,4 +84,29 @@ describe('layoutTab', () => {
     const layout = layoutTab(blockWithMeasures(1), 800)
     expect(layout.staffHeight).toBe(5 * TAB_METRICS.stringGap)
   })
+
+  it('コード名・メモがあると行の上下に余白が広がる', () => {
+    const plain = layoutTab(blockWithMeasures(1), 800)
+    expect(plain.topPad).toBe(TAB_METRICS.topPad)
+    expect(plain.hasMemos).toBe(false)
+
+    const block = blockWithMeasures(1)
+    block.measures[0]!.events[0]!.chord = 'Fm7'
+    block.measures[0]!.events[2]!.memo = '※ 3度トップの形'
+    const layout = layoutTab(block, 800)
+    expect(layout.topPad).toBe(TAB_METRICS.topPad + TAB_METRICS.chordHeight)
+    expect(layout.hasMemos).toBe(true)
+    expect(layout.height).toBe(plain.height + TAB_METRICS.chordHeight + TAB_METRICS.memoHeight)
+    // staffTop も広がった topPad ぶん下がる
+    expect(layout.lines[0]!.staffTop).toBe(layout.topPad)
+  })
+
+  it('長いコード名はイベント幅を押し広げる', () => {
+    const narrow = blockWithMeasures(1)
+    const wide = blockWithMeasures(1)
+    wide.measures[0]!.events[0]!.chord = 'B♭m7(♭5)/D♭'
+    const a = layoutTab(narrow, 800).lines[0]!.measures[0]!
+    const b = layoutTab(wide, 800).lines[0]!.measures[0]!
+    expect(b.width).toBeGreaterThan(a.width)
+  })
 })

@@ -36,3 +36,16 @@ export function doubleBase(base: DurationBase): DurationBase {
   const i = DURATION_BASES.indexOf(base)
   return DURATION_BASES[Math.max(i - 1, 0)] ?? base
 }
+
+/** 連符を なし → 3連 → 5連 → 6連 → なし と循環 */
+export function cycleTuplet(d: Duration): Duration {
+  const order: (Duration['tuplet'] | undefined)[] = [
+    undefined,
+    { actual: 3, normal: 2 },
+    { actual: 5, normal: 4 },
+    { actual: 6, normal: 4 },
+  ]
+  const i = order.findIndex((t) => t?.actual === d.tuplet?.actual && t?.normal === d.tuplet?.normal)
+  const next = order[(i + 1) % order.length]
+  return { ...d, tuplet: next }
+}

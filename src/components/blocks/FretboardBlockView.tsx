@@ -9,6 +9,7 @@ import {
   scalePositions,
 } from '../../model/theory.ts'
 import { INLAY_FRETS, STRING_GAP, fretboardGeometry } from '../../layout/fretboardLayout.ts'
+import { OrientationToggle } from './OrientationToggle.tsx'
 import { useDocStore } from '../../store/docStore.ts'
 
 // 'root' の表記は「強調」— スケール自動表示側の「ルート」と用語が衝突しないように(spec 003)
@@ -185,31 +186,10 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
             }}
           />
         </label>
-        <span className="orientation-toggle">
-          向き
-          <button
-            type="button"
-            className={`btn btn-sm ${!mirrored ? 'btn-active' : ''}`}
-            aria-pressed={!mirrored}
-            title="一般的な指板図の向き(ヘッドが左)"
-            onClick={() => {
-              if (mirrored) apply((b) => ({ ...b, mirrored: undefined }))
-            }}
-          >
-            右利き
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${mirrored ? 'btn-active' : ''}`}
-            aria-pressed={mirrored}
-            title="左右反転して表示します(ヘッドが右)。弦の並びは変わりません"
-            onClick={() => {
-              if (!mirrored) apply((b) => ({ ...b, mirrored: true }))
-            }}
-          >
-            左利き
-          </button>
-        </span>
+        <OrientationToggle
+          mirrored={mirrored}
+          onChange={(m) => apply((b) => ({ ...b, mirrored: m || undefined }))}
+        />
         {selectedMarker && (
           <span className="marker-editor">
             <input
