@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   degreeInKey,
+  isCharacteristicTone,
   isInScale,
   noteName,
   pitchClassName,
@@ -55,6 +56,71 @@ describe('スケールと度数', () => {
   })
 })
 
+describe('isCharacteristicTone(モーダル特徴音)', () => {
+  const dDorian = { tonic: 2, scale: 'dorian' as const }
+  const aDorian = { tonic: 9, scale: 'dorian' as const }
+
+  it('ドリアンではルートから 9 半音(6 度)のみが特徴音', () => {
+    expect(isCharacteristicTone(11, dDorian)).toBe(true) // B
+    expect(degreeInKey(11, dDorian)).toBe('6')
+
+    expect(isCharacteristicTone(2, dDorian)).toBe(false) // R
+    expect(isCharacteristicTone(4, dDorian)).toBe(false) // ♭3
+    expect(isCharacteristicTone(7, dDorian)).toBe(false) // 5
+    expect(isCharacteristicTone(9, dDorian)).toBe(false) // ♭7
+    expect(isCharacteristicTone(8, dDorian)).toBe(false) // ♭6(ナチュラルマイナー側)
+  })
+
+  it('ルートが変わっても相対度数で判定する', () => {
+    expect(isCharacteristicTone(6, aDorian)).toBe(true) // F# = A の 6 度
+    expect(degreeInKey(6, aDorian)).toBe('6')
+    expect(isCharacteristicTone(9, aDorian)).toBe(false) // R
+  })
+
+  it('ミクソリディアンではルートから 10 半音(♭7)のみが特徴音', () => {
+    const gMixolydian = { tonic: 7, scale: 'mixolydian' as const }
+    expect(isCharacteristicTone(5, gMixolydian)).toBe(true) // F
+    expect(degreeInKey(5, gMixolydian)).toBe('♭7')
+
+    expect(isCharacteristicTone(7, gMixolydian)).toBe(false) // R
+    expect(isCharacteristicTone(11, gMixolydian)).toBe(false) // 5
+    expect(isCharacteristicTone(6, gMixolydian)).toBe(false) // 7(メジャー側)
+  })
+
+  it('同じルートでもメジャーでは ♭7 は特徴音にならない', () => {
+    const gMajor = { tonic: 7, scale: 'major' as const }
+    expect(isCharacteristicTone(5, gMajor)).toBe(false) // ♭7
+    expect(degreeInKey(5, gMajor)).toBe('♭7')
+    expect(isCharacteristicTone(6, gMajor)).toBe(false) // 7
+    expect(degreeInKey(6, gMajor)).toBe('7')
+  })
+
+  it('モーダル以外のスケールでは常に false', () => {
+    const scales = [
+      'major',
+      'naturalMinor',
+      'harmonicMinor',
+      'melodicMinor',
+      'majorPentatonic',
+      'minorPentatonic',
+      'blues',
+    ] as const
+    for (const scale of scales) {
+      const key = { tonic: 2, scale }
+      expect(isCharacteristicTone(11, key)).toBe(false)
+      expect(isCharacteristicTone(0, key)).toBe(false) // ♭7 相当
+    }
+  })
+
+  it('同じルートでもナチュラルマイナーでは 6 度は特徴音にならない', () => {
+    const dNaturalMinor = { tonic: 2, scale: 'naturalMinor' as const }
+    expect(isCharacteristicTone(10, dNaturalMinor)).toBe(false) // ♭6
+    expect(degreeInKey(10, dNaturalMinor)).toBe('♭6')
+    expect(isCharacteristicTone(11, dNaturalMinor)).toBe(false) // 6(ドリアン側の特徴音)
+    expect(degreeInKey(11, dNaturalMinor)).toBe('6')
+  })
+})
+
 describe('scalePositions(指板図の自動マーキング)', () => {
   const aMinorPenta = { tonic: 9, scale: 'minorPentatonic' as const }
   const has = (ps: ReturnType<typeof scalePositions>, string: number, fret: number) =>
@@ -93,5 +159,64 @@ describe('scalePositions(指板図の自動マーキング)', () => {
     const roots = ps.filter((p) => p.isRoot)
     expect(roots.length).toBeGreaterThan(0)
     for (const p of roots) expect(p.pc).toBe(9)
+  })
+
+  it('ドリアンでは 6 度(長6)のみが特徴音としてマークされる', () => {
+    const dDorian = { tonic: 2, scale: 'dorian' as const }
+    const ps = scalePositions(STANDARD_TUNING, 0, 12, dDorian)
+    const chars = ps.filter((p) => p.isCharacteristic)
+
+    expect(chars.length).toBeGreaterThan(0)
+    expect(chars.every((p) => p.pc === 11)).toBe(true)
+    expect(chars.every((p) => !p.isRoot)).toBe(true)
+    expect(chars.every((p) => degreeInKey(p.pc, dDorian) === '6')).toBe(true)
+
+    // 指板上の既知位置: 2弦開放 = B(6 度)
+    expect(ps.find((p) => p.string === 2 && p.fret === 0)?.isCharacteristic).toBe(true)
+    // 3弦4F = B(6 度)
+    expect(ps.find((p) => p.string === 3 && p.fret === 4)?.isCharacteristic).toBe(true)
+    // 6弦10F = D(ルート)は特徴音ではない
+    expect(ps.find((p) => p.string === 6 && p.fret === 10)?.isCharacteristic).toBe(false)
+    expect(ps.find((p) => p.string === 6 && p.fret === 10)?.isRoot).toBe(true)
+  })
+
+  it('ドリアンでは特徴音のピッチクラスは 1 種類だけ', () => {
+    const dDorian = { tonic: 2, scale: 'dorian' as const }
+    const ps = scalePositions(STANDARD_TUNING, 0, 12, dDorian)
+    const charPcs = new Set(ps.filter((p) => p.isCharacteristic).map((p) => p.pc))
+    expect([...charPcs]).toEqual([11])
+  })
+
+  it('ミクソリディアンでは ♭7 のみが特徴音としてマークされる', () => {
+    const gMixolydian = { tonic: 7, scale: 'mixolydian' as const }
+    const ps = scalePositions(STANDARD_TUNING, 0, 12, gMixolydian)
+    const chars = ps.filter((p) => p.isCharacteristic)
+
+    expect(chars.length).toBeGreaterThan(0)
+    expect(chars.every((p) => p.pc === 5)).toBe(true) // F
+    expect(chars.every((p) => !p.isRoot)).toBe(true)
+    expect(chars.every((p) => degreeInKey(p.pc, gMixolydian) === '♭7')).toBe(true)
+
+    // 4弦3F = F(♭7)
+    expect(ps.find((p) => p.string === 4 && p.fret === 3)?.isCharacteristic).toBe(true)
+    // 6弦3F = G(ルート)は特徴音ではない
+    expect(ps.find((p) => p.string === 6 && p.fret === 3)?.isCharacteristic).toBe(false)
+    expect(ps.find((p) => p.string === 6 && p.fret === 3)?.isRoot).toBe(true)
+  })
+
+  it('ミクソリディアンでは特徴音のピッチクラスは 1 種類だけ', () => {
+    const gMixolydian = { tonic: 7, scale: 'mixolydian' as const }
+    const ps = scalePositions(STANDARD_TUNING, 0, 12, gMixolydian)
+    const charPcs = new Set(ps.filter((p) => p.isCharacteristic).map((p) => p.pc))
+    expect([...charPcs]).toEqual([5])
+  })
+
+  it('非モーダルスケールでは特徴音フラグが立たない', () => {
+    const ps = scalePositions(STANDARD_TUNING, 0, 12, aMinorPenta)
+    expect(ps.every((p) => !p.isCharacteristic)).toBe(true)
+
+    const dNaturalMinor = { tonic: 2, scale: 'naturalMinor' as const }
+    const minorPs = scalePositions(STANDARD_TUNING, 0, 12, dNaturalMinor)
+    expect(minorPs.every((p) => !p.isCharacteristic)).toBe(true)
   })
 })

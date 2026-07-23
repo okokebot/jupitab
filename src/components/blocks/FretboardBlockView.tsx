@@ -384,7 +384,7 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
               return (
                 <g
                   key={`auto-${p.string}-${p.fret}`}
-                  className={`marker-auto${p.isRoot ? ' marker-auto-root' : ''}`}
+                  className={`marker-auto${p.isRoot ? ' marker-auto-root' : ''}${p.isCharacteristic ? ' marker-auto-characteristic' : ''}`}
                 >
                   {/* ルートは二重円で強調(手動マーカーの塗りと混同しないよう塗りは使わない) */}
                   {p.isRoot && <circle cx={x} cy={y} r={10} />}

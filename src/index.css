@@ -10,6 +10,7 @@
   --danger: #c53030;
   --staff: #9a978e;
   --note: #1a1a22;
+  --modal-tone: #7c3aed;
 
   --sans: system-ui, 'Hiragino Sans', 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -34,6 +35,7 @@
     --danger: #f56565;
     --staff: #5d5b66;
     --note: #f0eef8;
+    --modal-tone: #a78bfa;
   }
 }
 

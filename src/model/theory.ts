@@ -40,6 +40,20 @@ const SCALE_INTERVALS: Record<ScaleType, number[]> = {
   mixolydian: [0, 2, 4, 5, 7, 9, 10],
 }
 
+/** モーダルスケールの特徴音(親スケールとの差分となる度数の半音距離) */
+const MODAL_CHARACTERISTIC_INTERVAL: Partial<Record<ScaleType, number>> = {
+  dorian: 9, // 6(長6度) — ナチュラルマイナーの ♭6 との差
+  mixolydian: 10, // ♭7 — メジャーの 7 との差
+}
+
+/** モーダルスケールの特徴音か(ルート以外の構成音のみ) */
+export function isCharacteristicTone(pc: number, key: KeyContext): boolean {
+  const interval = MODAL_CHARACTERISTIC_INTERVAL[key.scale]
+  if (interval === undefined) return false
+  const dist = (((pc - key.tonic) % 12) + 12) % 12
+  return dist === interval
+}
+
 /** キーのスケール構成音(ピッチクラスの集合) */
 export function scalePitchClasses(key: KeyContext): Set<number> {
   const intervals = SCALE_INTERVALS[key.scale]
@@ -68,6 +82,8 @@ export interface ScalePosition {
   /** ピッチクラス 0-11 */
   pc: number
   isRoot: boolean
+  /** モーダルスケールの特徴音(例: ドリアンの 6 度) */
+  isCharacteristic: boolean
 }
 
 /**
@@ -89,7 +105,14 @@ export function scalePositions(
   for (let string = 1; string <= tuning.length; string++) {
     for (let fret = firstFret; fret <= fretEnd; fret++) {
       const pc = pitchClass(pitchFromTab(tuning, string, fret))
-      if (pcs.has(pc)) positions.push({ string, fret, pc, isRoot: pc === key.tonic })
+      if (pcs.has(pc))
+        positions.push({
+          string,
+          fret,
+          pc,
+          isRoot: pc === key.tonic,
+          isCharacteristic: isCharacteristicTone(pc, key),
+        })
     }
   }
   return positions
