@@ -11,7 +11,7 @@
 
 - [x] T-1: `src/model/types.ts` の `ScaleType` に `'phrygian' | 'lydian' | 'locrian'` を追加。完了条件: `npm run typecheck` green(既存 `Record<ScaleType, ...>` を使う箇所でコンパイルエラーが出る場合は T-2 と併せて解消)
 - [x] T-2: `src/model/theory.ts` の `SCALE_INTERVALS` に `phrygian: [0,1,3,5,7,8,10]` / `lydian: [0,2,4,6,7,9,11]` / `locrian: [0,1,3,5,6,8,10]` を追加。`MODAL_CHARACTERISTIC_INTERVAL` の型を `Partial<Record<ScaleType, number[]>>` に変更し、既存の `dorian: 9` / `mixolydian: 10` を `dorian: [9]` / `mixolydian: [10]` に書き換え、`phrygian: [1]` / `lydian: [6]` / `locrian: [1, 6]` を追加。`isCharacteristicTone` を配列の `includes` 判定に変更。完了条件: `npx vitest run src/model/theory.test.ts` で既存テストが green のまま通る
-- [ ] T-3: `src/model/theory.test.ts` に フリジアン・リディアン・ロクリアンの `isCharacteristicTone` テストと `scalePositions` テスト(design.md のテスト戦略節のとおり。ロクリアンは特徴音ピッチクラスが 2 種類であることを検証)を追加。既存の「モーダル以外のスケールでは常に false」テスト(`theory.test.ts:98-113`)の対象 `scales` 配列には新設 3 モードを含めないこと(AC-5 は「元々仕組みが無い 7 種」の回帰確認であり、新設 3 モードを混ぜると意図が崩れる)。完了条件: `npx vitest run src/model/theory.test.ts` green
+- [x] T-3: `src/model/theory.test.ts` に フリジアン・リディアン・ロクリアンの `isCharacteristicTone` テストと `scalePositions` テスト(design.md のテスト戦略節のとおり。ロクリアンは特徴音ピッチクラスが 2 種類であることを検証)を追加。既存の「モーダル以外のスケールでは常に false」テスト(`theory.test.ts:98-113`)の対象 `scales` 配列には新設 3 モードを含めないこと(AC-5 は「元々仕組みが無い 7 種」の回帰確認であり、新設 3 モードを混ぜると意図が崩れる)。完了条件: `npx vitest run src/model/theory.test.ts` green
 
 ## Phase 2: UI
 

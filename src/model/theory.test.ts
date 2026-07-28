@@ -119,6 +119,40 @@ describe('isCharacteristicTone(モーダル特徴音)', () => {
     expect(isCharacteristicTone(11, dNaturalMinor)).toBe(false) // 6(ドリアン側の特徴音)
     expect(degreeInKey(11, dNaturalMinor)).toBe('6')
   })
+
+  it('フリジアンではルートから 1 半音(♭2)のみが特徴音', () => {
+    const ePhrygian = { tonic: 4, scale: 'phrygian' as const }
+    expect(isCharacteristicTone(5, ePhrygian)).toBe(true) // F = ♭2
+    expect(degreeInKey(5, ePhrygian)).toBe('♭2')
+
+    expect(isCharacteristicTone(4, ePhrygian)).toBe(false) // R
+    expect(isCharacteristicTone(7, ePhrygian)).toBe(false) // ♭3
+    expect(isCharacteristicTone(11, ePhrygian)).toBe(false) // 5
+    expect(isCharacteristicTone(6, ePhrygian)).toBe(false) // 2(ナチュラルマイナー側)
+  })
+
+  it('リディアンではルートから 6 半音(増4度、ラベルは ♭5)のみが特徴音', () => {
+    const cLydian = { tonic: 0, scale: 'lydian' as const }
+    expect(isCharacteristicTone(6, cLydian)).toBe(true) // F# = 増4度
+    expect(degreeInKey(6, cLydian)).toBe('♭5') // 綴りの自動導出は非スコープ(#4 ではなく ♭5 表記)
+
+    expect(isCharacteristicTone(0, cLydian)).toBe(false) // R
+    expect(isCharacteristicTone(11, cLydian)).toBe(false) // 7
+    expect(isCharacteristicTone(5, cLydian)).toBe(false) // 4(メジャー側)
+  })
+
+  it('ロクリアンでは ♭2 と ♭5 の両方が特徴音になる', () => {
+    const bLocrian = { tonic: 11, scale: 'locrian' as const }
+    expect(isCharacteristicTone(0, bLocrian)).toBe(true) // C = ♭2
+    expect(degreeInKey(0, bLocrian)).toBe('♭2')
+    expect(isCharacteristicTone(5, bLocrian)).toBe(true) // F = ♭5
+    expect(degreeInKey(5, bLocrian)).toBe('♭5')
+
+    expect(isCharacteristicTone(11, bLocrian)).toBe(false) // R
+    expect(isCharacteristicTone(2, bLocrian)).toBe(false) // ♭3
+    expect(isCharacteristicTone(6, bLocrian)).toBe(false) // 4(ナチュラルマイナー側)
+    expect(isCharacteristicTone(1, bLocrian)).toBe(false) // 2(ナチュラルマイナー側)
+  })
 })
 
 describe('scalePositions(指板図の自動マーキング)', () => {
@@ -218,5 +252,29 @@ describe('scalePositions(指板図の自動マーキング)', () => {
     const dNaturalMinor = { tonic: 2, scale: 'naturalMinor' as const }
     const minorPs = scalePositions(STANDARD_TUNING, 0, 12, dNaturalMinor)
     expect(minorPs.every((p) => !p.isCharacteristic)).toBe(true)
+  })
+
+  it('フリジアンでは特徴音のピッチクラスは 1 種類だけ', () => {
+    const ePhrygian = { tonic: 4, scale: 'phrygian' as const }
+    const ps = scalePositions(STANDARD_TUNING, 0, 12, ePhrygian)
+    const charPcs = new Set(ps.filter((p) => p.isCharacteristic).map((p) => p.pc))
+    expect([...charPcs]).toEqual([5]) // F(♭2)
+  })
+
+  it('リディアンでは特徴音のピッチクラスは 1 種類だけ', () => {
+    const cLydian = { tonic: 0, scale: 'lydian' as const }
+    const ps = scalePositions(STANDARD_TUNING, 0, 12, cLydian)
+    const charPcs = new Set(ps.filter((p) => p.isCharacteristic).map((p) => p.pc))
+    expect([...charPcs]).toEqual([6]) // F#(増4度)
+  })
+
+  it('ロクリアンでは特徴音のピッチクラスが 2 種類になる(♭2 と ♭5)', () => {
+    const bLocrian = { tonic: 11, scale: 'locrian' as const }
+    const ps = scalePositions(STANDARD_TUNING, 0, 12, bLocrian)
+    const chars = ps.filter((p) => p.isCharacteristic)
+    const charPcs = new Set(chars.map((p) => p.pc))
+
+    expect(charPcs).toEqual(new Set([0, 5])) // C(♭2), F(♭5)
+    expect(chars.every((p) => !p.isRoot)).toBe(true)
   })
 })
