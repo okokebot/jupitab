@@ -1,6 +1,6 @@
 ---
 title: 指板図のモーダルスケール拡充(フリジアン/リディアン/ロクリアン)
-status: implementing
+status: done
 created: 2026-07-28
 ---
 
