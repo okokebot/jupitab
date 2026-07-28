@@ -52,12 +52,16 @@ const MODAL_CHARACTERISTIC_INTERVAL: Partial<Record<ScaleType, number[]>> = {
   locrian: [1, 6], // ♭2 と ♭5 — ナチュラルマイナーの 2・5 との差
 }
 
+/** トニックからの相対半音距離(0-11)。degreeInKey とタイでずれないよう共有する */
+function relativeDegree(pc: number, tonic: number): number {
+  return (((pc - tonic) % 12) + 12) % 12
+}
+
 /** モーダルスケールの特徴音か(ルート以外の構成音のみ) */
 export function isCharacteristicTone(pc: number, key: KeyContext): boolean {
   const intervals = MODAL_CHARACTERISTIC_INTERVAL[key.scale]
   if (intervals === undefined) return false
-  const dist = (((pc - key.tonic) % 12) + 12) % 12
-  return intervals.includes(dist)
+  return intervals.includes(relativeDegree(pc, key.tonic))
 }
 
 /** キーのスケール構成音(ピッチクラスの集合) */
@@ -70,8 +74,7 @@ const DEGREE_NAMES = ['R', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '
 
 /** トニックからの半音距離を度数ラベルにする(理論レンズの中核) */
 export function degreeInKey(pc: number, key: KeyContext): string {
-  const dist = (((pc - key.tonic) % 12) + 12) % 12
-  return DEGREE_NAMES[dist] ?? ''
+  return DEGREE_NAMES[relativeDegree(pc, key.tonic)] ?? ''
 }
 
 /** スケール構成音かどうか */
