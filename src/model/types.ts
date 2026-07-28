@@ -89,6 +89,9 @@ export type ScaleType =
   | 'blues'
   | 'dorian'
   | 'mixolydian'
+  | 'phrygian'
+  | 'lydian'
+  | 'locrian'
 
 export interface KeyContext {
   /** ピッチクラス 0-11(0 = C) */

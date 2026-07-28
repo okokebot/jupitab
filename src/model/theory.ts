@@ -38,20 +38,26 @@ const SCALE_INTERVALS: Record<ScaleType, number[]> = {
   blues: [0, 3, 5, 6, 7, 10],
   dorian: [0, 2, 3, 5, 7, 9, 10],
   mixolydian: [0, 2, 4, 5, 7, 9, 10],
+  phrygian: [0, 1, 3, 5, 7, 8, 10],
+  lydian: [0, 2, 4, 6, 7, 9, 11],
+  locrian: [0, 1, 3, 5, 6, 8, 10],
 }
 
-/** モーダルスケールの特徴音(親スケールとの差分となる度数の半音距離) */
-const MODAL_CHARACTERISTIC_INTERVAL: Partial<Record<ScaleType, number>> = {
-  dorian: 9, // 6(長6度) — ナチュラルマイナーの ♭6 との差
-  mixolydian: 10, // ♭7 — メジャーの 7 との差
+/** モーダルスケールの特徴音(親スケールとの差分となる度数の半音距離。複数ありうる) */
+const MODAL_CHARACTERISTIC_INTERVAL: Partial<Record<ScaleType, number[]>> = {
+  dorian: [9], // 6(長6度) — ナチュラルマイナーの ♭6 との差
+  mixolydian: [10], // ♭7 — メジャーの 7 との差
+  phrygian: [1], // ♭2 — ナチュラルマイナーの 2 との差
+  lydian: [6], // #4(ラベル表示は ♭5) — メジャーの 4 との差
+  locrian: [1, 6], // ♭2 と ♭5 — ナチュラルマイナーの 2・5 との差
 }
 
 /** モーダルスケールの特徴音か(ルート以外の構成音のみ) */
 export function isCharacteristicTone(pc: number, key: KeyContext): boolean {
-  const interval = MODAL_CHARACTERISTIC_INTERVAL[key.scale]
-  if (interval === undefined) return false
+  const intervals = MODAL_CHARACTERISTIC_INTERVAL[key.scale]
+  if (intervals === undefined) return false
   const dist = (((pc - key.tonic) % 12) + 12) % 12
-  return dist === interval
+  return intervals.includes(dist)
 }
 
 /** キーのスケール構成音(ピッチクラスの集合) */
