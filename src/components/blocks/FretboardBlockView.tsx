@@ -7,6 +7,7 @@ import {
   pitchClassName,
   pitchFromTab,
   scalePositions,
+  type ScalePosition,
 } from '../../model/theory.ts'
 import { INLAY_FRETS, STRING_GAP, fretboardGeometry } from '../../layout/fretboardLayout.ts'
 import { OrientationToggle } from './OrientationToggle.tsx'
@@ -65,7 +66,10 @@ const SCALE_GROUPS: { heading: string; scales: { value: ScaleType; label: string
       { value: 'harmonicMinor', label: 'ハーモニックマイナー' },
       { value: 'melodicMinor', label: 'メロディックマイナー' },
       { value: 'dorian', label: 'ドリアン' },
+      { value: 'phrygian', label: 'フリジアン' },
+      { value: 'lydian', label: 'リディアン' },
       { value: 'mixolydian', label: 'ミクソリディアン' },
+      { value: 'locrian', label: 'ロクリアン' },
     ],
   },
 ]
@@ -113,9 +117,13 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
   /** 現在の表示モードでのラベル(labelMode 'none' のときは呼び出し側でガード) */
   const derivedLabel = (pc: number) =>
     key ? (labelMode === 'name' ? pitchClassName(pc, key.preferFlats) : degreeInKey(pc, key)) : ''
-  /** ホバーツールチップ用「音名(度数)」 */
-  const hoverTitle = (pc: number) =>
-    key ? `${pitchClassName(pc, key.preferFlats)}(${degreeInKey(pc, key)})` : ''
+  /** ホバーツールチップ用「音名(度数)」。特徴音には「・特徴音」を付与する(spec 005 AC-8) */
+  const hoverTitle = (p: ScalePosition) =>
+    key
+      ? `${pitchClassName(p.pc, key.preferFlats)}(${degreeInKey(p.pc, key)})${p.isCharacteristic ? '・特徴音' : ''}`
+      : ''
+  /** 特徴音を含むスケールかどうか。ホバーに気づけない初見のユーザー向けの常時ヒント表示に使う(spec 005 AC-8) */
+  const hasCharacteristicTones = autoPositions.some((p) => p.isCharacteristic)
 
   const stringCount = block.tuning.length
   const fretCount = block.fretEnd - block.fretStart
@@ -290,6 +298,11 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
             {key.preferFlats ? '♭表記' : '♯表記'}
           </button>
         )}
+        {key && hasCharacteristicTones && (
+          <span className="lens-hint characteristic-hint">
+            紫の点はこのモードを特徴づける音です(ホバーで音名・度数を確認できます)
+          </span>
+        )}
         {!key && (
           <span className="lens-hint">
             スケールを選ぶと、その音が指板に自動表示されます(ルートは A から変更できます)
@@ -370,7 +383,7 @@ export function FretboardBlockView({ block }: { block: FretboardBlock }) {
                 onClick={() => handleClick(string, fret)}
               >
                 {/* 自動マーカー本体は pointer-events: none のため、ツールチップはヒット領域側に付ける */}
-                {auto && <title>{hoverTitle(auto.pc)}</title>}
+                {auto && <title>{hoverTitle(auto)}</title>}
               </rect>
             )
           }),

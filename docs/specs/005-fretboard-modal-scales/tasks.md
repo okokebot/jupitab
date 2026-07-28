@@ -15,9 +15,9 @@
 
 ## Phase 2: UI
 
-- [ ] T-4: `src/components/blocks/FretboardBlockView.tsx` の `SCALE_GROUPS`「慣れてきたら」グループに `phrygian` / `lydian` / `locrian` を日本語ラベルで追加し、モード系(ドリアン/フリジアン/リディアン/ミクソリディアン/ロクリアン)が隣接する並び順に変更。完了条件: `npm run dev` でスケール選択肢に 3 モードが表示され、並び順が design.md のとおりであることを目視確認
-- [ ] T-5: `hoverTitle` のシグネチャを `pc: number` から `p: ScalePosition` に変更し、`p.isCharacteristic` が true のとき文言に「・特徴音」を付与。呼び出し側(`hoverTitle(auto.pc)` → `hoverTitle(auto)`)を更新。完了条件: `npm run dev` でフリジアン/リディアン/ロクリアンそれぞれを選択し、特徴音位置のホバーで「・特徴音」が表示されることを目視確認(ロクリアンは ♭2・♭5 の両方とも確認)
-- [ ] T-5b(ux-designer 指摘反映): `hasCharacteristicTones = autoPositions.some((p) => p.isCharacteristic)` を算出し、true のとき `fretboard-lens` ツールバーに常時ヒント文言(`lens-hint characteristic-hint`)を表示。ホバーという操作に気づけない初見のユーザーでも紫の意味に到達できるようにする(spec.md AC-8)。完了条件: `npm run dev` で特徴音を含むスケール選択時にホバーせずともヒント文言が表示され、特徴音の無いスケール(例: メジャー)では表示されないことを目視確認
+- [x] T-4: `src/components/blocks/FretboardBlockView.tsx` の `SCALE_GROUPS`「慣れてきたら」グループに `phrygian` / `lydian` / `locrian` を日本語ラベルで追加し、モード系(ドリアン/フリジアン/リディアン/ミクソリディアン/ロクリアン)が隣接する並び順に変更。完了条件: `npm run dev` でスケール選択肢に 3 モードが表示され、並び順が design.md のとおりであることを目視確認
+- [x] T-5: `hoverTitle` のシグネチャを `pc: number` から `p: ScalePosition` に変更し、`p.isCharacteristic` が true のとき文言に「・特徴音」を付与。呼び出し側(`hoverTitle(auto.pc)` → `hoverTitle(auto)`)を更新。完了条件: `npm run dev` でフリジアン/リディアン/ロクリアンそれぞれを選択し、特徴音位置のホバーで「・特徴音」が表示されることを目視確認(ロクリアンは ♭2・♭5 の両方とも確認)
+- [x] T-5b(ux-designer 指摘反映): `hasCharacteristicTones = autoPositions.some((p) => p.isCharacteristic)` を算出し、true のとき `fretboard-lens` ツールバーに常時ヒント文言(`lens-hint characteristic-hint`)を表示。ホバーという操作に気づけない初見のユーザーでも紫の意味に到達できるようにする(spec.md AC-8)。完了条件: `npm run dev` で特徴音を含むスケール選択時にホバーせずともヒント文言が表示され、特徴音の無いスケール(例: メジャー)では表示されないことを目視確認
 
 ## Phase 3: 手動確認(design.md のテスト戦略節に対応)
 
