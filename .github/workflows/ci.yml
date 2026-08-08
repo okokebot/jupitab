@@ -1,13 +1,19 @@
-# lint / 型チェック込みビルド / テストを PR とメインブランチ push で回す
+# main へのマージ PR で lint / 型チェック / テスト / ビルドを回す
 name: CI
 
 on:
-  push:
-    branches: [main, master]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 同じ PR に新しい push が来たら古い実行はキャンセルする
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
+    name: lint / typecheck / test / build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,5 +23,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-      - run: npm run build
+      - run: npm run typecheck
       - run: npm test
+      - run: npm run build
