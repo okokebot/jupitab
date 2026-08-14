@@ -65,10 +65,10 @@ describe('isCharacteristicTone(モーダル特徴音)', () => {
     expect(degreeInKey(11, dDorian)).toBe('6')
 
     expect(isCharacteristicTone(2, dDorian)).toBe(false) // R
-    expect(isCharacteristicTone(4, dDorian)).toBe(false) // ♭3
-    expect(isCharacteristicTone(7, dDorian)).toBe(false) // 5
-    expect(isCharacteristicTone(9, dDorian)).toBe(false) // ♭7
-    expect(isCharacteristicTone(8, dDorian)).toBe(false) // ♭6(ナチュラルマイナー側)
+    expect(isCharacteristicTone(5, dDorian)).toBe(false) // ♭3 (F)
+    expect(isCharacteristicTone(9, dDorian)).toBe(false) // 5 (A)
+    expect(isCharacteristicTone(0, dDorian)).toBe(false) // ♭7 (C)
+    expect(isCharacteristicTone(10, dDorian)).toBe(false) // ♭6(ナチュラルマイナー側, B♭)
   })
 
   it('ルートが変わっても相対度数で判定する', () => {
@@ -83,7 +83,7 @@ describe('isCharacteristicTone(モーダル特徴音)', () => {
     expect(degreeInKey(5, gMixolydian)).toBe('♭7')
 
     expect(isCharacteristicTone(7, gMixolydian)).toBe(false) // R
-    expect(isCharacteristicTone(11, gMixolydian)).toBe(false) // 5
+    expect(isCharacteristicTone(11, gMixolydian)).toBe(false) // 3
     expect(isCharacteristicTone(6, gMixolydian)).toBe(false) // 7(メジャー側)
   })
 
@@ -131,10 +131,10 @@ describe('isCharacteristicTone(モーダル特徴音)', () => {
     expect(isCharacteristicTone(6, ePhrygian)).toBe(false) // 2(ナチュラルマイナー側)
   })
 
-  it('リディアンではルートから 6 半音(増4度、ラベルは ♭5)のみが特徴音', () => {
+  it('リディアンではルートから 6 半音(増4度、ラベルは ♯4)のみが特徴音', () => {
     const cLydian = { tonic: 0, scale: 'lydian' as const }
     expect(isCharacteristicTone(6, cLydian)).toBe(true) // F# = 増4度
-    expect(degreeInKey(6, cLydian)).toBe('♭5') // 綴りの自動導出は非スコープ(#4 ではなく ♭5 表記)
+    expect(degreeInKey(6, cLydian)).toBe('♯4') // 長6度・長7度を両方持つため ♭5 でなく ♯4 と綴る
 
     expect(isCharacteristicTone(0, cLydian)).toBe(false) // R
     expect(isCharacteristicTone(11, cLydian)).toBe(false) // 7
@@ -150,7 +150,7 @@ describe('isCharacteristicTone(モーダル特徴音)', () => {
 
     expect(isCharacteristicTone(11, bLocrian)).toBe(false) // R
     expect(isCharacteristicTone(2, bLocrian)).toBe(false) // ♭3
-    expect(isCharacteristicTone(6, bLocrian)).toBe(false) // 4(ナチュラルマイナー側)
+    expect(isCharacteristicTone(6, bLocrian)).toBe(false) // 5(ナチュラルマイナー側)
     expect(isCharacteristicTone(1, bLocrian)).toBe(false) // 2(ナチュラルマイナー側)
   })
 })

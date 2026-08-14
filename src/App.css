@@ -581,6 +581,12 @@
   font-size: 12px;
 }
 
+.characteristic-hint::before {
+  content: '●';
+  margin-right: 4px;
+  color: var(--modal-tone);
+}
+
 .label-mode-toggle {
   display: inline-flex;
   align-items: center;

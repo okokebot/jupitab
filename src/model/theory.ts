@@ -44,7 +44,7 @@ const SCALE_INTERVALS: Record<ScaleType, number[]> = {
 }
 
 /** モーダルスケールの特徴音(親スケールとの差分となる度数の半音距離。複数ありうる) */
-const MODAL_CHARACTERISTIC_INTERVAL: Partial<Record<ScaleType, number[]>> = {
+const MODAL_CHARACTERISTIC_INTERVALS: Partial<Record<ScaleType, number[]>> = {
   dorian: [9], // 6(長6度) — ナチュラルマイナーの ♭6 との差
   mixolydian: [10], // ♭7 — メジャーの 7 との差
   phrygian: [1], // ♭2 — ナチュラルマイナーの 2 との差
@@ -52,14 +52,14 @@ const MODAL_CHARACTERISTIC_INTERVAL: Partial<Record<ScaleType, number[]>> = {
   locrian: [1, 6], // ♭2 と ♭5 — ナチュラルマイナーの 2・5 との差
 }
 
-/** トニックからの相対半音距離(0-11)。degreeInKey とタイでずれないよう共有する */
+/** トニックからの相対半音距離(0-11)。degreeInKey と定義がずれないよう共有する */
 function relativeDegree(pc: number, tonic: number): number {
   return (((pc - tonic) % 12) + 12) % 12
 }
 
-/** モーダルスケールの特徴音か(ルート以外の構成音のみ) */
+/** モーダルスケールの特徴音か。呼び出し側はスケール構成音(scalePitchClasses に含まれる pc)に対して呼ぶ前提 */
 export function isCharacteristicTone(pc: number, key: KeyContext): boolean {
-  const intervals = MODAL_CHARACTERISTIC_INTERVAL[key.scale]
+  const intervals = MODAL_CHARACTERISTIC_INTERVALS[key.scale]
   if (intervals === undefined) return false
   return intervals.includes(relativeDegree(pc, key.tonic))
 }
@@ -72,9 +72,19 @@ export function scalePitchClasses(key: KeyContext): Set<number> {
 
 const DEGREE_NAMES = ['R', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '6', '♭7', '7'] as const
 
+/** 長6度(9)と長7度(11)を両方持つスケール。この場合トライトーンは ♭5 でなく ♯4 と綴る(リディアン等) */
+const SHARP_FOURTH_SCALES = new Set<ScaleType>(
+  (Object.keys(SCALE_INTERVALS) as ScaleType[]).filter((scale) => {
+    const intervals = SCALE_INTERVALS[scale]
+    return intervals.includes(9) && intervals.includes(11)
+  }),
+)
+
 /** トニックからの半音距離を度数ラベルにする(理論レンズの中核) */
 export function degreeInKey(pc: number, key: KeyContext): string {
-  return DEGREE_NAMES[relativeDegree(pc, key.tonic)] ?? ''
+  const degree = relativeDegree(pc, key.tonic)
+  if (degree === 6 && SHARP_FOURTH_SCALES.has(key.scale)) return '♯4'
+  return DEGREE_NAMES[degree] ?? ''
 }
 
 /** スケール構成音かどうか */
