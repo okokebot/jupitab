@@ -38,6 +38,30 @@ const SCALE_INTERVALS: Record<ScaleType, number[]> = {
   blues: [0, 3, 5, 6, 7, 10],
   dorian: [0, 2, 3, 5, 7, 9, 10],
   mixolydian: [0, 2, 4, 5, 7, 9, 10],
+  phrygian: [0, 1, 3, 5, 7, 8, 10],
+  lydian: [0, 2, 4, 6, 7, 9, 11],
+  locrian: [0, 1, 3, 5, 6, 8, 10],
+}
+
+/** モーダルスケールの特徴音(親スケールとの差分となる度数の半音距離。複数ありうる) */
+const MODAL_CHARACTERISTIC_INTERVALS: Partial<Record<ScaleType, number[]>> = {
+  dorian: [9], // 6(長6度) — ナチュラルマイナーの ♭6 との差
+  mixolydian: [10], // ♭7 — メジャーの 7 との差
+  phrygian: [1], // ♭2 — ナチュラルマイナーの 2 との差
+  lydian: [6], // #4(ラベル表示は ♭5) — メジャーの 4 との差
+  locrian: [1, 6], // ♭2 と ♭5 — ナチュラルマイナーの 2・5 との差
+}
+
+/** トニックからの相対半音距離(0-11)。degreeInKey と定義がずれないよう共有する */
+function relativeDegree(pc: number, tonic: number): number {
+  return (((pc - tonic) % 12) + 12) % 12
+}
+
+/** モーダルスケールの特徴音か。呼び出し側はスケール構成音(scalePitchClasses に含まれる pc)に対して呼ぶ前提 */
+export function isCharacteristicTone(pc: number, key: KeyContext): boolean {
+  const intervals = MODAL_CHARACTERISTIC_INTERVALS[key.scale]
+  if (intervals === undefined) return false
+  return intervals.includes(relativeDegree(pc, key.tonic))
 }
 
 /** キーのスケール構成音(ピッチクラスの集合) */
@@ -48,10 +72,19 @@ export function scalePitchClasses(key: KeyContext): Set<number> {
 
 const DEGREE_NAMES = ['R', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '6', '♭7', '7'] as const
 
+/** 長6度(9)と長7度(11)を両方持つスケール。この場合トライトーンは ♭5 でなく ♯4 と綴る(リディアン等) */
+const SHARP_FOURTH_SCALES = new Set<ScaleType>(
+  (Object.keys(SCALE_INTERVALS) as ScaleType[]).filter((scale) => {
+    const intervals = SCALE_INTERVALS[scale]
+    return intervals.includes(9) && intervals.includes(11)
+  }),
+)
+
 /** トニックからの半音距離を度数ラベルにする(理論レンズの中核) */
 export function degreeInKey(pc: number, key: KeyContext): string {
-  const dist = (((pc - key.tonic) % 12) + 12) % 12
-  return DEGREE_NAMES[dist] ?? ''
+  const degree = relativeDegree(pc, key.tonic)
+  if (degree === 6 && SHARP_FOURTH_SCALES.has(key.scale)) return '♯4'
+  return DEGREE_NAMES[degree] ?? ''
 }
 
 /** スケール構成音かどうか */
@@ -68,6 +101,8 @@ export interface ScalePosition {
   /** ピッチクラス 0-11 */
   pc: number
   isRoot: boolean
+  /** モーダルスケールの特徴音(例: ドリアンの 6 度) */
+  isCharacteristic: boolean
 }
 
 /**
@@ -89,7 +124,14 @@ export function scalePositions(
   for (let string = 1; string <= tuning.length; string++) {
     for (let fret = firstFret; fret <= fretEnd; fret++) {
       const pc = pitchClass(pitchFromTab(tuning, string, fret))
-      if (pcs.has(pc)) positions.push({ string, fret, pc, isRoot: pc === key.tonic })
+      if (pcs.has(pc))
+        positions.push({
+          string,
+          fret,
+          pc,
+          isRoot: pc === key.tonic,
+          isCharacteristic: isCharacteristicTone(pc, key),
+        })
     }
   }
   return positions

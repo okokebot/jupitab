@@ -581,6 +581,12 @@
   font-size: 12px;
 }
 
+.characteristic-hint::before {
+  content: '●';
+  margin-right: 4px;
+  color: var(--modal-tone);
+}
+
 .label-mode-toggle {
   display: inline-flex;
   align-items: center;
@@ -699,6 +705,15 @@
 
 .fretboard-svg .marker-auto-root text {
   fill: var(--accent);
+}
+
+/* モーダルスケールの特徴音(例: ドリアンの 6 度) */
+.fretboard-svg .marker-auto-characteristic circle {
+  stroke: var(--modal-tone);
+}
+
+.fretboard-svg .marker-auto-characteristic text {
+  fill: var(--modal-tone);
 }
 
 /* ---- コード表ブロック ---- */
